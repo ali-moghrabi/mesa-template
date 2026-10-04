@@ -1,0 +1,31 @@
+/** Icons a client may pick in config.json (e.g. content.about.highlights[].icon). */
+export const ICON_NAMES = [
+  "leaf",
+  "flame",
+  "heart",
+  "utensils",
+  "utensils-crossed",
+  "wine",
+  "chef-hat",
+  "wheat",
+  "fish",
+  "coffee",
+  "sprout",
+  "star",
+  "award",
+  "map-pin",
+  "clock",
+  "users",
+  "sparkles",
+  "cake-slice",
+  "croissant",
+  "egg",
+  "salad",
+  "soup",
+  "beef",
+  "pizza",
+  "beer",
+  "recycle",
+] as const;
+
+export type IconName = (typeof ICON_NAMES)[number];

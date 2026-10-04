@@ -3,6 +3,12 @@ import type { Metadata } from "next";
 import { getConfig } from "@/config/loader";
 import { heroSchema } from "@/components/home/schema";
 import { HeroFullscreen } from "@/components/home/HeroFullscreen";
+import { AboutSection } from "@/components/common/Index";
+import MenuPreview from "@/components/home/MenuPreview";
+import StatsPreview from "@/components/home/StatsPreview";
+import Hours from "@/components/home/Hours";
+import { ReservationCta } from "@/components/home/ReservationCta";
+import { Newsletter } from "@/components/home/Newsletter";
 
 export function generateMetadata(): Metadata {
   const { pages } = getConfig();
@@ -14,19 +20,48 @@ export function generateMetadata(): Metadata {
 
 const HomePage: React.FC = () => {
   const config = getConfig();
-  const hero = config.pages.home.sections.find(
-    (s) => s.type === "hero" && s.enabled,
-  );
 
   return (
     <>
-      {hero && (
-        <HeroFullscreen
-          props={heroSchema.parse(hero.props)}
-          business={config.business}
-          reservationsEnabled={config.features.reservations}
-        />
-      )}
+      {config.pages.home.sections
+        .filter((section) => section.enabled)
+        .map((section) => {
+          switch (section.type) {
+            case "hero":
+              return (
+                <HeroFullscreen
+                  key={section.id}
+                  props={heroSchema.parse(section.props)}
+                  business={config.business}
+                  reservationsEnabled={
+                    config.pages.reservations?.enabled === true
+                  }
+                />
+              );
+            case "about":
+              return (
+                <AboutSection
+                  key={section.id}
+                  section={section}
+                  content={config.content.about}
+                />
+              );
+            case "menuPreview":
+              return <MenuPreview key={section.id} />;
+            case "stats":
+              return <StatsPreview key={section.id} />;
+            case "hoursLocation":
+              return <Hours key={section.id} />;
+            case "reservationCta":
+              if (config.features.reservations) {
+                return <ReservationCta key={section.id} section={section} />;
+              }
+            case "newsletter":
+              return <Newsletter key={section.id} section={section} />;
+            default:
+              return null;
+          }
+        })}
     </>
   );
 };

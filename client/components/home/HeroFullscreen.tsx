@@ -25,6 +25,10 @@ export function HeroFullscreen({
   const showBooking =
     props.booking && reservationsEnabled && Boolean(primaryCta);
 
+  const words = props.title.trim().split(/\s+/);
+  const last = words.pop() ?? "";
+  const lead = words.join(" ");
+
   return (
     <section
       aria-labelledby="hero-title"
@@ -33,7 +37,7 @@ export function HeroFullscreen({
       <div className="absolute inset-0 -z-10 animate-settle motion-reduce:animate-none">
         <Image
           src={`/${props.image}`}
-          alt=""
+          alt="hero image"
           preload
           fill
           sizes="100vw"
@@ -52,7 +56,8 @@ export function HeroFullscreen({
             id="hero-title"
             className="max-w-[13ch] text-[clamp(3.25rem,10.5vw,9rem)] leading-[0.92] font-medium tracking-[-0.055em] text-balance capitalize"
           >
-            {props.title}
+            {lead ? `${lead} ` : null}
+            <span className="text-primary">{last}</span>
           </h1>
 
           {props.subtitle && (

@@ -1,12 +1,11 @@
 import { z } from "zod";
 
 export const SECTION_VARIANTS = {
-  hero: ["fullscreen", "split", "video", "slider"],
-  about: ["split", "centered", "stacked"],
+  hero: ["fullscreen", "video", "slider"],
+  about: ["split", "stacked"],
   menuPreview: ["grid", "list", "carousel"],
   fullMenu: ["tabs", "list", "grid"],
   stats: ["inline", "cards"],
-  testimonials: ["carousel", "grid"],
   hoursLocation: ["map", "simple"],
   reservationCta: ["banner", "inline"],
   reservationForm: ["inline", "split"],
@@ -198,9 +197,6 @@ const layout = obj({
   }),
   footer: obj({
     variant: z.enum(["columns", "minimal", "centered"]),
-    showNewsletter: z.boolean(),
-    showSocials: z.boolean(),
-    showHours: z.boolean(),
     copyright: text.optional(),
     links: z.array(navLink).optional(),
   }),
@@ -717,7 +713,7 @@ export const configSchema = obj({
       ["features", "whatsappButton"],
       "whatsappButton needs business.whatsapp",
     );
-  if (cfg.layout.footer.showSocials && cfg.business.socials.length === 0)
+  if (cfg.business.socials.length === 0)
     add(
       ["layout", "footer", "showSocials"],
       "showSocials is on but business.socials is empty",

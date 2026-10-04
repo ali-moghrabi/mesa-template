@@ -55,9 +55,6 @@
     },
     "footer": {
       "variant": "columns",
-      "showNewsletter": true,
-      "showSocials": true,
-      "showHours": true,
       "copyright": "© 2026 Mesa Kitchen. All rights reserved.",
       "links": [
         { "label": "Privacy Policy", "href": "/legal/privacy" },
@@ -134,17 +131,6 @@
           "props": { "source": "content.stats" }
         },
         {
-          "id": "home-testimonials",
-          "type": "testimonials",
-          "variant": "carousel",
-          "enabled": true,
-          "props": {
-            "title": "What our guests say",
-            "source": "content.testimonials",
-            "autoplay": true
-          }
-        },
-        {
           "id": "home-hours",
           "type": "hoursLocation",
           "variant": "map",
@@ -159,18 +145,19 @@
           "props": {
             "title": "Your table is waiting",
             "subtitle": "Reservations open up to 30 days in advance.",
-            "image": "images/cta.jpg",
+            "image": "assets/home/reservation-cta.jpg",
             "cta": { "label": "Reserve now", "href": "/reservations" }
           }
         },
         {
           "id": "home-newsletter",
           "type": "newsletter",
-          "variant": "simple",
+          "variant": "split",
           "enabled": true,
           "props": {
             "title": "Stay in the loop",
-            "subtitle": "Seasonal menus, events and offers. No spam."
+            "subtitle": "Seasonal menus, events and offers. No spam.",
+            "image": "assets/home/newsletter.jpg"
           }
         }
       ]
@@ -395,7 +382,7 @@
         "Mesa started in 2012 as a twelve-seat kitchen with one idea: food tastes better when it is shared.",
         "Today we still cook the same way. We buy from farms within 80 km, bake bread every morning and change the menu with the seasons."
       ],
-      "image": "images/about.jpg",
+      "image": "assets/home/about.jpg",
       "highlights": [
         {
           "icon": "leaf",
