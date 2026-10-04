@@ -1,0 +1,660 @@
+{
+  "id": "demo",
+  "version": 1,
+
+  "brand": {
+    "name": "Mesa Kitchen",
+    "tagline": "Seasonal food, shared tables",
+    "description": "A neighborhood restaurant serving modern Mediterranean dishes made from local ingredients.",
+    "logo": { "light": "logo-light.svg", "dark": "logo-dark.svg" },
+    "favicon": "favicon.ico",
+    "ogImage": "og.jpg"
+  },
+
+  "theme": {
+    "mode": "light",
+    "allowModeToggle": false,
+    "colors": {
+      "light": {
+        "primary": "#B4532A",
+        "secondary": "#2F3E34",
+        "accent": "#E0A458",
+        "background": "#FBF7F2",
+        "text": "#1F1B16",
+        "muted": "#6B6258",
+        "border": "#E8DFD3"
+      },
+      "dark": {
+        "primary": "#D9733F",
+        "secondary": "#8FA597",
+        "accent": "#E0A458",
+        "background": "#15120F",
+        "text": "#F5EFE6",
+        "muted": "#A39889",
+        "border": "#2E2822"
+      }
+    },
+    "radius": "soft",
+    "buttonStyle": "solid",
+    "shadow": "soft",
+    "density": "airy"
+  },
+
+  "layout": {
+    "navbar": {
+      "variant": "transparent",
+      "sticky": true,
+      "links": [
+        { "label": "Home", "href": "/" },
+        { "label": "Menu", "href": "/menu" },
+        { "label": "About", "href": "/about" },
+        { "label": "Gallery", "href": "/gallery" },
+        { "label": "Contact", "href": "/contact" }
+      ],
+      "cta": { "label": "Sign in", "href": "/sign-in" }
+    },
+    "footer": {
+      "variant": "columns",
+      "showNewsletter": true,
+      "showSocials": true,
+      "showHours": true,
+      "copyright": "© 2026 Mesa Kitchen. All rights reserved.",
+      "links": [
+        { "label": "Privacy Policy", "href": "/legal/privacy" },
+        { "label": "Terms of Service", "href": "/legal/terms" }
+      ]
+    },
+    "announcementBar": {
+      "enabled": true,
+      "text": "Live jazz every Friday night. Reserve your table today.",
+      "link": { "label": "Reserve", "href": "/reservations" },
+      "dismissible": true
+    },
+    "promoPopup": {
+      "enabled": false,
+      "title": "10% off your first online order",
+      "body": "Join our newsletter and get a welcome offer.",
+      "image": "images/popup.jpg",
+      "delaySeconds": 8
+    }
+  },
+
+  "pages": {
+    "home": {
+      "enabled": true,
+      "seo": {
+        "title": "Mesa Kitchen | Modern Mediterranean Restaurant",
+        "description": "Seasonal Mediterranean food, handmade daily. Book your table online."
+      },
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "variant": "fullscreen",
+          "enabled": true,
+          "props": {
+            "title": "Good food is better shared",
+            "subtitle": "Seasonal plates, wood-fired breads and a table with your name on it.",
+            "image": "assets/home/hero.jpg",
+            "overlay": 0.25,
+            "booking": true,
+            "primaryCta": { "label": "Book a table", "href": "/reservations" },
+            "secondaryCta": { "label": "View menu", "href": "/menu" }
+          }
+        },
+        {
+          "id": "home-about",
+          "type": "about",
+          "variant": "split",
+          "enabled": true,
+          "props": { "source": "content.about", "imagePosition": "start" }
+        },
+        {
+          "id": "home-featured",
+          "type": "menuPreview",
+          "variant": "grid",
+          "enabled": true,
+          "props": {
+            "title": "Chef's favorites",
+            "subtitle": "The dishes our guests keep coming back for.",
+            "itemIds": [
+              "burrata-salad",
+              "lamb-shoulder",
+              "wild-mushroom-risotto",
+              "basque-cheesecake"
+            ],
+            "cta": { "label": "See full menu", "href": "/menu" }
+          }
+        },
+        {
+          "id": "home-stats",
+          "type": "stats",
+          "variant": "inline",
+          "enabled": true,
+          "props": { "source": "content.stats" }
+        },
+        {
+          "id": "home-testimonials",
+          "type": "testimonials",
+          "variant": "carousel",
+          "enabled": true,
+          "props": {
+            "title": "What our guests say",
+            "source": "content.testimonials",
+            "autoplay": true
+          }
+        },
+        {
+          "id": "home-hours",
+          "type": "hoursLocation",
+          "variant": "map",
+          "enabled": true,
+          "props": { "title": "Visit us", "showMap": true, "showOpenNow": true }
+        },
+        {
+          "id": "home-reserve",
+          "type": "reservationCta",
+          "variant": "banner",
+          "enabled": true,
+          "props": {
+            "title": "Your table is waiting",
+            "subtitle": "Reservations open up to 30 days in advance.",
+            "image": "images/cta.jpg",
+            "cta": { "label": "Reserve now", "href": "/reservations" }
+          }
+        },
+        {
+          "id": "home-newsletter",
+          "type": "newsletter",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Stay in the loop",
+            "subtitle": "Seasonal menus, events and offers. No spam."
+          }
+        }
+      ]
+    },
+
+    "menu": {
+      "enabled": true,
+      "seo": {
+        "title": "Menu | Mesa Kitchen",
+        "description": "Explore our starters, mains, desserts and drinks."
+      },
+      "sections": [
+        {
+          "id": "menu-header",
+          "type": "pageHeader",
+          "variant": "image",
+          "enabled": true,
+          "props": {
+            "title": "Our Menu",
+            "subtitle": "Made fresh daily from local ingredients.",
+            "image": "images/menu-header.jpg"
+          }
+        },
+        {
+          "id": "menu-full",
+          "type": "fullMenu",
+          "variant": "tabs",
+          "enabled": true,
+          "props": {
+            "showImages": true,
+            "showSearch": true,
+            "showFilters": true,
+            "showAllergens": true
+          }
+        }
+      ]
+    },
+
+    "about": {
+      "enabled": true,
+      "seo": {
+        "title": "Our Story | Mesa Kitchen",
+        "description": "Meet the people and the story behind Mesa Kitchen."
+      },
+      "sections": [
+        {
+          "id": "about-header",
+          "type": "pageHeader",
+          "variant": "image",
+          "enabled": true,
+          "props": {
+            "title": "Our Story",
+            "subtitle": "Since 2012",
+            "image": "images/about-header.jpg"
+          }
+        },
+        {
+          "id": "about-story",
+          "type": "about",
+          "variant": "split",
+          "enabled": true,
+          "props": { "source": "content.about", "imagePosition": "end" }
+        },
+        {
+          "id": "about-team",
+          "type": "team",
+          "variant": "grid",
+          "enabled": true,
+          "props": {
+            "title": "The people behind the plates",
+            "source": "content.team"
+          }
+        },
+        {
+          "id": "about-faq",
+          "type": "faq",
+          "variant": "accordion",
+          "enabled": true,
+          "props": { "title": "Good to know", "source": "content.faqs" }
+        }
+      ]
+    },
+
+    "gallery": {
+      "enabled": true,
+      "seo": {
+        "title": "Gallery | Mesa Kitchen",
+        "description": "A look inside our dining room, kitchen and dishes."
+      },
+      "sections": [
+        {
+          "id": "gallery-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Gallery",
+            "subtitle": "A taste of the atmosphere."
+          }
+        },
+        {
+          "id": "gallery-grid",
+          "type": "gallery",
+          "variant": "masonry",
+          "enabled": true,
+          "props": { "source": "content.gallery", "lightbox": true }
+        }
+      ]
+    },
+
+    "contact": {
+      "enabled": true,
+      "seo": {
+        "title": "Contact & Location | Mesa Kitchen",
+        "description": "Find us, call us or send a message."
+      },
+      "sections": [
+        {
+          "id": "contact-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Contact",
+            "subtitle": "We would love to hear from you."
+          }
+        },
+        {
+          "id": "contact-hours",
+          "type": "hoursLocation",
+          "variant": "map",
+          "enabled": true,
+          "props": { "title": "Find us", "showMap": true, "showOpenNow": true }
+        },
+        {
+          "id": "contact-form",
+          "type": "contact",
+          "variant": "split",
+          "enabled": true,
+          "props": {
+            "title": "Send us a message",
+            "subjects": [
+              "General question",
+              "Private event",
+              "Feedback",
+              "Press"
+            ]
+          }
+        }
+      ]
+    },
+
+    "reservations": {
+      "enabled": true,
+      "seo": {
+        "title": "Reserve a Table | Mesa Kitchen",
+        "description": "Book your table online in under a minute."
+      },
+      "sections": [
+        {
+          "id": "res-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Reserve a Table",
+            "subtitle": "For parties larger than 10, please call us."
+          }
+        },
+        {
+          "id": "res-form",
+          "type": "reservationForm",
+          "variant": "inline",
+          "enabled": true,
+          "props": {}
+        }
+      ]
+    },
+
+    "events": {
+      "enabled": true,
+      "seo": {
+        "title": "Events | Mesa Kitchen",
+        "description": "Live music, tasting dinners and private events."
+      },
+      "sections": [
+        {
+          "id": "events-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Events & Offers",
+            "subtitle": "There is always something happening."
+          }
+        },
+        {
+          "id": "events-list",
+          "type": "events",
+          "variant": "cards",
+          "enabled": true,
+          "props": { "source": "content.events" }
+        }
+      ]
+    },
+
+    "blog": {
+      "enabled": false,
+      "seo": {
+        "title": "Journal | Mesa Kitchen",
+        "description": "News and stories from our kitchen."
+      },
+      "sections": []
+    }
+  },
+
+  "content": {
+    "about": {
+      "eyebrow": "Our story",
+      "title": "A small kitchen with a big table",
+      "body": [
+        "Mesa started in 2012 as a twelve-seat kitchen with one idea: food tastes better when it is shared.",
+        "Today we still cook the same way. We buy from farms within 80 km, bake bread every morning and change the menu with the seasons."
+      ],
+      "image": "images/about.jpg",
+      "highlights": [
+        {
+          "icon": "leaf",
+          "title": "Local produce",
+          "text": "Sourced from farms within 80 km."
+        },
+        {
+          "icon": "flame",
+          "title": "Wood-fired",
+          "text": "Breads and mains cooked over open flame."
+        },
+        {
+          "icon": "heart",
+          "title": "Made by hand",
+          "text": "Pasta, bread and desserts made in house daily."
+        }
+      ],
+      "cta": { "label": "Read our story", "href": "/about" }
+    },
+
+    "stats": [
+      { "value": "12+", "label": "Years serving" },
+      { "value": "40", "label": "Local suppliers" },
+      { "value": "4.8", "label": "Average rating" },
+      { "value": "2", "label": "Industry awards" }
+    ],
+
+    "gallery": [
+      {
+        "id": "g1",
+        "image": "images/gallery/1.jpg",
+        "alt": "Dining room at sunset",
+        "category": "Interior"
+      },
+      {
+        "id": "g2",
+        "image": "images/gallery/2.jpg",
+        "alt": "Wood-fired oven in action",
+        "category": "Kitchen"
+      },
+      {
+        "id": "g3",
+        "image": "images/gallery/3.jpg",
+        "alt": "Burrata with heirloom tomatoes",
+        "category": "Dishes"
+      },
+      {
+        "id": "g4",
+        "image": "images/gallery/4.jpg",
+        "alt": "Slow-roasted lamb shoulder",
+        "category": "Dishes"
+      },
+      {
+        "id": "g5",
+        "image": "images/gallery/5.jpg",
+        "alt": "Terrace seating",
+        "category": "Interior"
+      },
+      {
+        "id": "g6",
+        "image": "images/gallery/6.jpg",
+        "alt": "Basque cheesecake",
+        "category": "Dishes"
+      }
+    ],
+
+    "faqs": [
+      {
+        "question": "Do I need a reservation?",
+        "answer": "Walk-ins are welcome, but we recommend booking, especially Thursday to Saturday."
+      },
+      {
+        "question": "Do you have vegetarian and vegan options?",
+        "answer": "Yes. Dishes are labeled on the menu and our team can adapt many others."
+      },
+      {
+        "question": "Can I host a private event?",
+        "answer": "Our private room seats up to 24 guests. Send us a message from the contact page."
+      },
+      {
+        "question": "Is the restaurant wheelchair accessible?",
+        "answer": "Yes, the dining room, terrace and restrooms are fully step-free."
+      }
+    ],
+
+    "events": [
+      {
+        "id": "e1",
+        "title": "Jazz Fridays",
+        "date": "Every Friday",
+        "time": "20:00",
+        "description": "Live jazz trio with a special three-course menu.",
+        "image": "images/events/jazz.jpg",
+        "cta": { "label": "Reserve", "href": "/reservations" }
+      },
+      {
+        "id": "e2",
+        "title": "Winemaker's Dinner",
+        "date": "2026-11-14",
+        "time": "19:30",
+        "description": "Five courses paired with wines from a small Lebanese estate.",
+        "image": "images/events/wine.jpg",
+        "cta": { "label": "Reserve", "href": "/reservations" }
+      }
+    ]
+  },
+
+  "menu": {
+    "currency": {
+      "primary": {
+        "enabled": true,
+        "code": "USD"
+      },
+      "secondary": {
+        "enabled": true,
+        "code": "LBP",
+        "rate": 89500,
+        "roundTo": 1000
+      }
+    },
+    "pricing": {
+      "taxIncluded": false,
+      "vatRate": 0.11,
+      "note": "Prices exclude 11% VAT."
+    },
+    "unavailableItems": "show-sold-out"
+  },
+
+  "business": {
+    "legalName": "Mesa Kitchen LLC",
+    "cuisine": ["Mediterranean", "Wood-fired", "Seasonal"],
+    "priceRange": "$$",
+    "address": {
+      "street": "24 Olive Street",
+      "city": "Beirut",
+      "region": "Beirut Governorate",
+      "postalCode": "1107",
+      "country": "Lebanon"
+    },
+    "geo": { "lat": 33.8938, "lng": 35.5018 },
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=PLACEHOLDER",
+    "phone": "+961 1 234 567",
+    "email": "hello@mesakitchen.example",
+    "whatsapp": {
+      "number": "+96171234567"
+    },
+    "socials": [
+      {
+        "platform": "instagram",
+        "url": "https://instagram.com/mesakitchen",
+        "handle": "@mesakitchen"
+      },
+      { "platform": "facebook", "url": "https://facebook.com/mesakitchen" }
+    ],
+    "timezone": "Asia/Beirut",
+    "specialHours": [
+      {
+        "date": "2026-12-24",
+        "label": "Christmas Eve",
+        "open": "12:00",
+        "close": "17:00"
+      },
+      { "date": "2026-12-25", "label": "Christmas Day", "closed": true },
+      {
+        "date": "2026-12-31",
+        "label": "New Year's Eve",
+        "open": "18:00",
+        "close": "02:00"
+      }
+    ],
+    "reservations": {
+      "minPartySize": 1,
+      "maxPartySize": 10,
+      "slotIntervalMinutes": 30,
+      "advanceDays": 30,
+      "minNoticeHours": 2,
+      "requirePhone": true,
+      "occasions": [
+        "Birthday",
+        "Anniversary",
+        "Business",
+        "Date night",
+        "Other"
+      ],
+      "confirmationMessage": "Thank you! We have received your request and will confirm by email shortly."
+    }
+  },
+
+  "features": {
+    "reservations": true,
+    "onlineOrdering": true,
+    "delivery": true,
+    "pickup": false,
+    "newsletter": true,
+    "contactForm": true,
+    "blog": false,
+    "events": true,
+    "giftCards": false,
+    "whatsappButton": true,
+    "instagramFeed": false,
+    "cookieBanner": true,
+    "darkModeToggle": true
+  },
+
+  "seo": {
+    "siteName": "Mesa Kitchen",
+    "titleTemplate": "%s | Mesa Kitchen",
+    "defaultTitle": "Mesa Kitchen | Modern Mediterranean Restaurant",
+    "defaultDescription": "Seasonal Mediterranean food, handmade daily. Book your table online.",
+    "keywords": [
+      "restaurant",
+      "mediterranean",
+      "wood-fired",
+      "beirut",
+      "reservations"
+    ],
+    "siteUrl": "https://demo.mesa.example",
+    "ogImage": "og.jpg",
+    "twitterHandle": "@mesakitchen",
+    "structuredData": {
+      "type": "Restaurant",
+      "servesCuisine": ["Mediterranean"],
+      "acceptsReservations": true
+    }
+  },
+
+  "locale": {
+    "language": "en",
+    "direction": "ltr",
+    "dateFormat": "MMM d, yyyy",
+    "timeFormat": "24h"
+  },
+
+  "integrations": {
+    "googleAnalyticsId": "",
+    "metaPixelId": "",
+    "googleTagManagerId": "",
+    "customDomain": "",
+    "emailProvider": {
+      "newsletter": "none",
+      "formsRecipient": "hello@mesakitchen.example"
+    }
+  },
+
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy",
+      "updated": "2026-01-01",
+      "body": "Placeholder privacy policy text."
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "updated": "2026-01-01",
+      "body": "Placeholder terms text."
+    },
+    "cookies": {
+      "message": "We use cookies to improve your experience.",
+      "acceptLabel": "Accept",
+      "declineLabel": "Decline"
+    }
+  }
+}
