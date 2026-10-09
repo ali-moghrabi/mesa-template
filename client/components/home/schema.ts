@@ -16,18 +16,33 @@ const cta = z
 
 export type HeroCta = z.infer<typeof cta>;
 
+const imagePath = z
+  .string()
+  .refine(
+    (v) => !/^([a-z]+:)?\/\//i.test(v) && !v.startsWith("/"),
+    "Use a path relative to the client's public folder",
+  )
+  .refine((v) => !v.includes(".."), "'..' is not allowed in paths");
+
+export const webmVideo = z
+  .string()
+  .trim()
+  .refine(
+    (v) => !/^([a-z]+:)?\/\//i.test(v) && !v.startsWith("/"),
+    "Use a path relative to the client's public folder",
+  )
+  .refine((v) => !v.includes(".."), "'..' is not allowed in paths");
+
 export const heroSchema = z
   .object({
     title: z.string().trim().min(1),
     subtitle: z.string().trim().min(1).optional(),
-    image: z
-      .string()
-      .min(1)
-      .refine(
-        (v) => !/^([a-z]+:)?\/\//i.test(v) && !v.startsWith("/"),
-        "Use a path relative to the client's public folder",
-      )
-      .refine((v) => !v.includes(".."), "'..' is not allowed in paths"),
+    image: imagePath.optional(),
+    slides: z.array(imagePath).min(1).optional(),
+    interval: z.number().optional(),
+    video: imagePath,
+    videoWebm: webmVideo.optional(),
+    poster: imagePath.optional(),
     overlay: z.number().min(0).max(1).default(0.4),
     booking: z.boolean().default(true),
     primaryCta: cta.optional(),

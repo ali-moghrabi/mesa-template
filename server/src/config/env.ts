@@ -12,6 +12,7 @@ const envSchema = z.object({
       'Must be a MongoDB URI (mongodb:// or mongodb+srv://)',
     ),
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:3000'),
+  COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_ACCESS_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'Use at least 32 random characters'),

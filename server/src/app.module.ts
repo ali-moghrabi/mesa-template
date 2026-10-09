@@ -7,6 +7,7 @@ import { Env, validateEnv } from './config/env';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './features/auth/auth.module';
+import { MenuModule } from './features/menu/menu.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuthModule } from './features/auth/auth.module';
       }),
     }),
     AuthModule,
+    MenuModule,
   ],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
   controllers: [AppController],

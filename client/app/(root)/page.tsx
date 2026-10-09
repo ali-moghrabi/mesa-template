@@ -2,13 +2,13 @@ import React from "react";
 import type { Metadata } from "next";
 import { getConfig } from "@/config/loader";
 import { heroSchema } from "@/components/home/schema";
-import { HeroFullscreen } from "@/components/home/HeroFullscreen";
 import { AboutSection } from "@/components/common/Index";
 import MenuPreview from "@/components/home/MenuPreview";
 import StatsPreview from "@/components/home/StatsPreview";
 import Hours from "@/components/home/Hours";
 import { ReservationCta } from "@/components/home/ReservationCta";
 import { Newsletter } from "@/components/home/Newsletter";
+import HeroLayout from "@/components/home/HeroLayout";
 
 export function generateMetadata(): Metadata {
   const { pages } = getConfig();
@@ -18,7 +18,7 @@ export function generateMetadata(): Metadata {
   };
 }
 
-const HomePage: React.FC = () => {
+const HomePage: React.FC = async () => {
   const config = getConfig();
 
   return (
@@ -29,9 +29,10 @@ const HomePage: React.FC = () => {
           switch (section.type) {
             case "hero":
               return (
-                <HeroFullscreen
+                <HeroLayout
                   key={section.id}
                   props={heroSchema.parse(section.props)}
+                  variant={section.variant}
                   business={config.business}
                   reservationsEnabled={
                     config.pages.reservations?.enabled === true

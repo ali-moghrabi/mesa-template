@@ -6,14 +6,25 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUpIcon, X, Menu } from "lucide-react";
 import { ModeToggle } from "@/components/ui/mode-toggle";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import AuthenticationDialog from "./AuthenticationDialog";
+import Image from "next/image";
+import SignUpForm from "@/components/auth/SignUpForm";
+import QueryWrapper from "@/components/providers/query-wrapper";
+import UserDropMenu from "@/components/shared/UserDropMenu";
 
 type NavLink = { label: string; href: string };
 
 export type NavbarClientProps = {
+  user: IUser | null;
   brandName: string;
+  lightLogo: string;
+  darkLogo: string;
   variant: string;
   sticky: boolean;
   links: NavLink[];
+  reservationsEnabled: boolean;
+  orderingEnabled: boolean;
   isDarkModeEnabled: boolean;
   cta: NavLink;
   announcement?: { text: string; link?: NavLink; dismissible: boolean };
@@ -25,10 +36,15 @@ const FOCUS =
   "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent";
 
 export function NavbarClient({
+  user,
   brandName,
+  lightLogo,
+  darkLogo,
   variant,
   sticky,
   links,
+  reservationsEnabled,
+  orderingEnabled,
   isDarkModeEnabled,
   cta,
   announcement,
@@ -37,6 +53,8 @@ export function NavbarClient({
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [signInDialogOpen, setSignInDialogOpen] = useState(false);
+  const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
   const [barDismissed, setBarDismissed] = useState(false);
 
   useEffect(() => {
@@ -66,7 +84,7 @@ export function NavbarClient({
   const solid = variant === "solid" || scrolled;
 
   return (
-    <>
+    <QueryWrapper>
       <header
         className={cn(
           "fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top,0px)] [--pad:clamp(1.1rem,4vw,3.5rem)]",
@@ -127,9 +145,20 @@ export function NavbarClient({
               FOCUS,
             )}
           >
-            <span className="grid size-8.5 place-items-center rounded-full bg-primary text-base text-primary-foreground">
-              {brandName[0]}
-            </span>
+            <Image
+              src={`/${darkLogo}`}
+              alt={brandName}
+              width={60}
+              height={60}
+              className="size-10 dark:hidden rounded-full"
+            />
+            <Image
+              src={`/${lightLogo}`}
+              alt={brandName}
+              width={60}
+              height={60}
+              className="hidden size-10 dark:block rounded-full"
+            />
             <span className="hidden min-[900px]:block">{brandName}</span>
           </Link>
 
@@ -152,16 +181,37 @@ export function NavbarClient({
             ))}
           </ul>
           <div className="flex items-center gap-3 max-[900px]:flex-row-reverse">
-            <Link
-              href={cta.href}
-              className={cn(
-                "rounded-lg bg-primary text-white px-4 py-2.5 text-sm font-semibold whitespace-nowrap hover:bg-primary/80 transition",
-                "min-[900px]:px-5 min-[900px]:py-3 max-[360px]:hidden",
-                FOCUS,
-              )}
-            >
-              {cta.label}
-            </Link>
+            {user ? (
+              <UserDropMenu
+                user={user}
+                reservationsEnabled={reservationsEnabled}
+                orderingEnabled={orderingEnabled}
+              />
+            ) : (
+              <Dialog
+                open={signInDialogOpen}
+                onOpenChange={setSignInDialogOpen}
+              >
+                <DialogTrigger>
+                  <span
+                    className={cn(
+                      "rounded-lg bg-primary text-white px-4 py-2.5 text-sm font-semibold whitespace-nowrap hover:bg-primary/80 backdrop-blur-3xl transition cursor-pointer",
+                      "min-[900px]:px-5 min-[900px]:py-3 max-[360px]:hidden",
+                      FOCUS,
+                    )}
+                  >
+                    {cta.label}
+                  </span>
+                </DialogTrigger>
+                <AuthenticationDialog
+                  brandName={brandName}
+                  lightLogo={lightLogo}
+                  darkLogo={darkLogo}
+                  setSignInDialogOpen={setSignInDialogOpen}
+                  setSignUpDialogOpen={setSignUpDialogOpen}
+                />
+              </Dialog>
+            )}
 
             {isDarkModeEnabled && <ModeToggle />}
           </div>
@@ -232,16 +282,28 @@ export function NavbarClient({
             ))}
           </nav>
 
-          <Link
-            href={cta.href}
-            onClick={() => setOpen(false)}
-            className="mt-6 flex min-h-13 items-center justify-between rounded-lg bg-primary py-2 pr-2 pl-6 font-semibold hover:bg-primary/80 transition text-white"
-          >
-            {cta.label}
-            <span className="grid size-9.5 place-items-center rounded-md bg-white/20">
-              <ArrowUpIcon />
-            </span>
-          </Link>
+          {user ? null : (
+            <Dialog open={signInDialogOpen} onOpenChange={setSignInDialogOpen}>
+              <DialogTrigger className="w-full">
+                <span
+                  onClick={() => setOpen(false)}
+                  className="mt-6 flex min-h-13 items-center justify-between rounded-lg bg-primary py-2 pr-2 pl-6 font-semibold backdrop-blur-3xl hover:bg-primary/80 transition text-white cursor-pointer"
+                >
+                  {cta.label}
+                  <span className="grid size-9.5 place-items-center rounded-md bg-white/20">
+                    <ArrowUpIcon />
+                  </span>
+                </span>
+              </DialogTrigger>
+              <AuthenticationDialog
+                brandName={brandName}
+                lightLogo={lightLogo}
+                darkLogo={darkLogo}
+                setSignInDialogOpen={setSignInDialogOpen}
+                setSignUpDialogOpen={setSignUpDialogOpen}
+              />
+            </Dialog>
+          )}
         </div>
 
         <div className="mt-6 grid gap-1 border-t border-border pt-4 text-sm text-foreground/65">
@@ -249,6 +311,18 @@ export function NavbarClient({
           <a href={`tel:${info.phone.replace(/[^+\d]/g, "")}`}>{info.phone}</a>
         </div>
       </div>
-    </>
+
+      {!user ? (
+        <Dialog open={signUpDialogOpen} onOpenChange={setSignUpDialogOpen}>
+          <SignUpForm
+            brandName={brandName}
+            lightLogo={lightLogo}
+            darkLogo={darkLogo}
+            setSignInDialogOpen={setSignInDialogOpen}
+            setSignUpDialogOpen={setSignUpDialogOpen}
+          />
+        </Dialog>
+      ) : null}
+    </QueryWrapper>
   );
 }

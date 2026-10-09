@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { ROLES, type Role } from 'lib/constants/roles';
 import { Document } from 'mongoose';
 
 export type UserDocument = User & Document;
@@ -32,6 +33,9 @@ export class User {
 
   @Prop({ type: Boolean, default: true })
   isActive!: boolean;
+
+  @Prop({ type: String, enum: ROLES, default: 'customer', index: true })
+  role!: Role;
 
   @Prop({ type: Date })
   emailVerifiedAt?: Date;

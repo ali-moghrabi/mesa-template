@@ -6,7 +6,10 @@
     "name": "Mesa Kitchen",
     "tagline": "Seasonal food, shared tables",
     "description": "A neighborhood restaurant serving modern Mediterranean dishes made from local ingredients.",
-    "logo": { "light": "logo-light.svg", "dark": "logo-dark.svg" },
+    "logo": {
+      "light": "assets/logo/logo-light.svg",
+      "dark": "assets/logo/logo-dark.svg"
+    },
     "favicon": "favicon.ico",
     "ogImage": "og.jpg"
   },
@@ -87,13 +90,22 @@
         {
           "id": "home-hero",
           "type": "hero",
-          "variant": "fullscreen",
+          "variant": "slider",
           "enabled": true,
           "props": {
             "title": "Good food is better shared",
             "subtitle": "Seasonal plates, wood-fired breads and a table with your name on it.",
             "image": "assets/home/hero.jpg",
             "overlay": 0.25,
+            "slides": [
+              "assets/home/slide-1.jpg",
+              "assets/home/slide-2.jpg",
+              "assets/home/slide-3.jpg"
+            ],
+            "interval": 15000,
+            "video": "assets/home/hero-video.mp4",
+            "videoWebm": "assets/home/hero-video.webm",
+            "poster": "assets/home/video-poster.jpg",
             "booking": true,
             "primaryCta": { "label": "Book a table", "href": "/reservations" },
             "secondaryCta": { "label": "View menu", "href": "/menu" }

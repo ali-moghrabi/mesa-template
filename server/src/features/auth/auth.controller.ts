@@ -20,7 +20,6 @@ import { Throttle } from '@nestjs/throttler';
 import {
   ACCESS_TOKEN_NAME,
   ACCESS_TTL_SECONDS,
-  REFRESH_COOKIE_PATH,
   REFRESH_TOKEN_NAME,
   REFRESH_TTL_SECONDS,
 } from 'lib/constants/authConstants';
@@ -100,23 +99,22 @@ export class AuthController {
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
   ) {
-    await this.authService.logout(this.refreshCookie(req));
+    await this.authService.logout(this.refreshCookies(req));
     this.clearAuthCookies(res);
+    this.clearLegacyCookies(res);
 
     return {
       message: 'User Logged out successfully',
     };
   }
-
-  private cookieOptions(
-    path: string,
-    maxAgeSeconds?: number,
-  ): express.CookieOptions {
+  private cookieOptions(maxAgeSeconds?: number): express.CookieOptions {
+    const domain = this.config.get('COOKIE_DOMAIN', { infer: true });
     return {
       httpOnly: true,
-      sameSite: 'strict',
+      sameSite: 'lax',
       secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
-      path,
+      path: '/',
+      ...(domain && { domain }),
       ...(maxAgeSeconds !== undefined && { maxAge: maxAgeSeconds * 1000 }),
     };
   }
@@ -125,7 +123,7 @@ export class AuthController {
     res.cookie(
       ACCESS_TOKEN_NAME,
       token,
-      this.cookieOptions('/', ACCESS_TTL_SECONDS),
+      this.cookieOptions(ACCESS_TTL_SECONDS),
     );
   }
 
@@ -133,21 +131,39 @@ export class AuthController {
     res.cookie(
       REFRESH_TOKEN_NAME,
       token,
-      this.cookieOptions(REFRESH_COOKIE_PATH, REFRESH_TTL_SECONDS),
+      this.cookieOptions(REFRESH_TTL_SECONDS),
     );
   }
 
   private clearAuthCookies(res: express.Response) {
-    res.clearCookie(ACCESS_TOKEN_NAME, this.cookieOptions('/'));
-    res.clearCookie(
-      REFRESH_TOKEN_NAME,
-      this.cookieOptions(REFRESH_COOKIE_PATH),
-    );
+    res.clearCookie(ACCESS_TOKEN_NAME, this.cookieOptions());
+    res.clearCookie(REFRESH_TOKEN_NAME, this.cookieOptions());
+  }
+
+  private clearLegacyCookies(res: express.Response) {
+    const legacy = { ...this.cookieOptions(), path: '/api/v1/auth' };
+    res.clearCookie(ACCESS_TOKEN_NAME, legacy);
+    res.clearCookie(REFRESH_TOKEN_NAME, legacy);
+  }
+
+  private refreshCookies(req: express.Request): string[] {
+    const header = req.headers.cookie ?? '';
+    const values: string[] = [];
+    for (const part of header.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq < 0 || part.slice(0, eq).trim() !== REFRESH_TOKEN_NAME) continue;
+      const raw = part.slice(eq + 1).trim();
+      try {
+        values.push(decodeURIComponent(raw));
+      } catch {
+        values.push(raw);
+      }
+    }
+    return values.filter(Boolean);
   }
 
   private refreshCookie(req: express.Request): string | undefined {
-    const value: unknown = req.cookies?.[REFRESH_TOKEN_NAME];
-    return typeof value === 'string' ? value : undefined;
+    return this.refreshCookies(req).at(-1);
   }
 
   private meta(req: express.Request): RequestMeta {

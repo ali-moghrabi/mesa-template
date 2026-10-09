@@ -205,22 +205,31 @@ export class AuthService {
     throw new UnauthorizedException('Invalid refresh token');
   }
 
-  async logout(refreshToken: string | undefined): Promise<void> {
-    if (!refreshToken) return;
-    try {
-      const payload = await this.jwtService.verifyAsync<RefreshPayload>(
-        refreshToken,
-        {
-          secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
-          ignoreExpiration: true,
-        },
-      );
-      await this.sessionModel.deleteOne({
-        _id: payload.sid,
-        userId: payload.sub,
-      });
-    } catch (error) {
-      this.logger.warn(`Logout could not remove the session: ${String(error)}`);
+  async logout(refreshTokens: string[]): Promise<void> {
+    if (refreshTokens.length === 0) {
+      this.logger.warn('Logout without a refresh cookie: no session deleted');
+      return;
+    }
+
+    for (const refreshToken of refreshTokens) {
+      try {
+        const payload = await this.jwtService.verifyAsync<RefreshPayload>(
+          refreshToken,
+          {
+            secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+            ignoreExpiration: true,
+          },
+        );
+        if (!Types.ObjectId.isValid(payload.sid)) continue;
+
+        const session = await this.sessionModel.findById(payload.sid).lean();
+        if (!session || String(session.userId) !== payload.sub) continue;
+
+        await this.sessionModel.deleteOne({ _id: session._id });
+        this.logger.log(`Logout: deleted session ${payload.sid}`);
+      } catch {
+        this.logger.error(`Logout: failed to delete session!`);
+      }
     }
   }
 

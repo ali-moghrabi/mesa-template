@@ -4,6 +4,7 @@ import { getConfig } from "@/config/loader";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { generateThemeCss } from "@/config/generate-css";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toast";
 
 const font = DM_Sans({
   subsets: ["latin"],
@@ -32,14 +33,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <style dangerouslySetInnerHTML={{ __html: generateThemeCss(theme) }} />
       </head>
       <body>
-        {" "}
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
-          disableTransitionOnChange
           enableSystem
+          storageKey="mesa-admin-theme"
+          disableTransitionOnChange
         >
           {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
