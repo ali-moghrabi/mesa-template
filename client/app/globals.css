@@ -109,6 +109,18 @@
   }
 }
 
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 @theme {
   --animate-zoom: zoom 18s ease-out both;
   --animate-rise: rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1)

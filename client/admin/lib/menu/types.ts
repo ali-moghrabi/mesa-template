@@ -26,6 +26,7 @@ export type AdminMenuItem = {
   name: string;
   description?: string;
   image?: string;
+  imageBlur?: string;
   category: { slug: string; name: string; isActive: boolean };
   price: number;
   compareAtPrice?: number;
@@ -65,4 +66,38 @@ export type MenuSummary = {
     isActive: boolean;
     itemCount: number;
   }[];
+};
+
+export type UploadedImage = {
+  key: string;
+  url: string;
+  width: number;
+  height: number;
+  bytes: number;
+  blurDataURL: string;
+};
+
+export type AdminMenuCategory = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  image?: string;
+  imageBlur?: string;
+  sortOrder: number;
+  isActive: boolean;
+  servingHours: { days: string[]; from: string; to: string }[];
+  itemCount: number;
+  soldOutCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminMenuItemDetail = AdminMenuItem & {
+  neighbors: {
+    position: number;
+    total: number;
+    previous?: { slug: string; name: string };
+    next?: { slug: string; name: string };
+  };
 };

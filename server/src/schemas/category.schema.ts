@@ -6,11 +6,6 @@ import {
   WEEK_DAYS,
   type WeekDay,
 } from 'lib/constants/menuConstants';
-
-/**
- * When a category is served, e.g. Breakfast: every day 07:00 to 11:30.
- * `to` earlier than `from` runs past midnight (22:00 to 02:00).
- */
 @Schema({ _id: false })
 export class ServingWindow {
   /** Empty = every day */
@@ -25,13 +20,11 @@ export class ServingWindow {
 }
 export const ServingWindowSchema = SchemaFactory.createForClass(ServingWindow);
 
-/** A section of the menu: Starters, Mains, Pizzas, Drinks... */
 @Schema({ collection: 'menu_categories', timestamps: true })
 export class MenuCategory {
   @Prop({ type: String, required: true, trim: true, maxlength: 60 })
   name!: string;
 
-  /** Stable public id used in URLs (/menu#mains). Generated from the name, unique. */
   @Prop({
     type: String,
     required: true,
@@ -46,9 +39,13 @@ export class MenuCategory {
   @Prop({ type: String, trim: true, maxlength: 300 })
   description?: string;
 
-  /** Path relative to the client's public folder, e.g. "assets/menu/mains.jpg" */
-  @Prop({ type: String, trim: true })
+  /** Cover photo: S3 key ("menu/….webp") or an older public-folder path. Turned into a URL by lib/media-url.ts */
+  @Prop({ type: String, trim: true, maxlength: 300 })
   image?: string;
+
+  /** Tiny blurred version of the cover (data URL) shown while it loads */
+  @Prop({ type: String, maxlength: 2000 })
+  imageBlur?: string;
 
   /** Lower numbers come first */
   @Prop({ type: Number, default: 0 })

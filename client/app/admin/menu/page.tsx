@@ -1,17 +1,19 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, LayoutGrid, Plus } from "lucide-react";
 import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/auth/user-roles";
 import { fetchMenuSummary } from "@/admin/lib/menu/api";
 import { MENU_PAGE_PATH, parseMenuFilters } from "@/admin/lib/menu/params";
 import type { MenuSummary } from "@/admin/lib/menu/types";
-import { MenuItemsList } from "@/admin/components/menu/MenuItemsList";
-import { MenuListSkeleton } from "@/admin/components/shared/MenuListSkeleton";
-import { MenuStats } from "@/admin/components/menu/MenuStats";
-import { MenuToolbar } from "@/admin/components/menu/MenuToolbar";
+import {
+  MenuItemsList,
+  MenuListSkeleton,
+  MenuStats,
+} from "@/admin/components/menu/MenuList";
+import { MenuToolbar } from "@/admin/components/menu/MenuClient";
 
 export function generateMetadata(): Metadata {
   const { brand } = getConfig();
@@ -57,6 +59,16 @@ export default async function AdminMenuPage({ searchParams }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href={`${MENU_PAGE_PATH}/categories`}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <LayoutGrid className="size-4" />
+            Categories
+            <span className="hidden rounded-full bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground tabular-nums sm:inline">
+              {categories.length}
+            </span>
+          </Link>
           <a
             href="/menu"
             target="_blank"
@@ -64,13 +76,12 @@ export default async function AdminMenuPage({ searchParams }: Props) {
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
             <ExternalLink className="size-4" />
-            <span className="hidden sm:inline">View on site</span>
-            <span className="sm:hidden">Site</span>
+            <span className="sr-only sm:not-sr-only">View on site</span>
           </a>
           {canManage && (
             <Link
-              href={`${MENU_PAGE_PATH}/new`}
-              className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 sm:flex-none"
+              href={`${MENU_PAGE_PATH}/new${filters.category ? `?category=${filters.category}` : ""}`}
+              className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary whitespace-nowrap px-4 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 sm:flex-none"
             >
               <Plus className="size-4.5 transition-transform group-hover:rotate-90" />
               New item

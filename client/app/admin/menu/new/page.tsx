@@ -1,29 +1,35 @@
-import Link from "next/link";
-import { ArrowLeft, ChefHat } from "lucide-react";
+import type { Metadata } from "next";
+import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
+import { fetchMenuSummary } from "@/admin/lib/menu/api";
+import { MenuItemForm } from "@/admin/components/menu/MenuItemForm";
+import QueryWrapper from "@/components/providers/query-wrapper";
 
-export default async function NewMenuItemPage() {
+export function generateMetadata(): Metadata {
+  const { brand } = getConfig();
+  return { title: `New menu item | ${brand.name} Admin` };
+}
+
+type Props = { searchParams: Promise<{ category?: string | string[] }> };
+
+export default async function NewMenuItemPage({ searchParams }: Props) {
   await requireTeam("menu:manage");
+  const config = getConfig();
+  const [summary, { category }] = await Promise.all([
+    fetchMenuSummary(),
+    searchParams,
+  ]);
+  const categories = summary.ok ? summary.data.categories : [];
+  const slug = Array.isArray(category) ? category[0] : category;
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-8">
-      <Link
-        href="/admin/menu"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> Menu
-      </Link>
-      <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border bg-card/60 px-6 py-20 text-center">
-        <span className="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary">
-          <ChefHat className="size-6" />
-        </span>
-        <h1 className="mt-4 text-xl font-semibold tracking-tight">
-          New menu item
-        </h1>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-          The form to create a dish goes here.
-        </p>
-      </div>
-    </div>
+    <QueryWrapper>
+      <MenuItemForm
+        categories={categories}
+        currency={config.menu.currency.primary.code}
+        initialCategoryId={categories.find((c) => c.slug === slug)?.id}
+        categoriesError={summary.ok ? undefined : summary.message}
+      />
+    </QueryWrapper>
   );
 }

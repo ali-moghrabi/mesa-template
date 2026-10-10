@@ -16,6 +16,12 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_ACCESS_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'Use at least 32 random characters'),
+  AWS_REGION: z.string().min(1),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET: z.string().min(1),
+  S3_KEY_PREFIX: z.string().optional(),
+  MEDIA_BASE_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

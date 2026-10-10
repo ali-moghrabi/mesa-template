@@ -1,13 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import type { Model, PipelineStage } from 'mongoose';
-import { pageOffset, paginationMeta, type Paginated } from 'lib/pagination';
+import {
+  Error as MongooseError,
+  type Model,
+  type PipelineStage,
+  type Types,
+} from 'mongoose';
+import { toMinor } from 'lib/money';
+import {
+  escapeRegex,
+  pageOffset,
+  paginationMeta,
+  type Paginated,
+} from 'lib/pagination';
 import { allTermsMatch, relevanceScore, searchTerms } from 'lib/search';
+import { RESERVED_SLUGS, slugify } from 'lib/slug';
+import {
+  MediaService,
+  type StoredImage,
+} from 'src/features/media/media.service';
 import {
   MenuCategory,
   type MenuCategoryDocument,
 } from 'src/schemas/category.schema';
 import { MenuItem, type MenuItemDocument } from 'src/schemas/item.schema';
+import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import type {
   AdminListMenuItemsQuery,
   ListMenuItemsQuery,
@@ -50,6 +72,17 @@ type Scope = 'public' | 'admin';
 
 const VISIBLE = { $and: ['$isActive', '$category.isActive'] };
 
+export type MenuItemNeighbors = {
+  position: number;
+  total: number;
+  previous?: { slug: string; name: string };
+  next?: { slug: string; name: string };
+};
+
+export type AdminMenuItemDetail = AdminMenuItem & {
+  neighbors: MenuItemNeighbors;
+};
+
 export type MenuSummary = {
   totals: { all: number; visible: number; hidden: number; soldOut: number };
   categories: {
@@ -68,26 +101,168 @@ export class MenuService {
     private readonly itemModel: Model<MenuItemDocument>,
     @InjectModel(MenuCategory.name)
     private readonly categoryModel: Model<MenuCategoryDocument>,
+    private readonly media: MediaService,
   ) {}
 
-  /** Guests: only dishes and categories that are switched on. */
+  async createItem(dto: CreateMenuItemDto): Promise<AdminMenuItem> {
+    const category = await this.categoryModel
+      .findById(dto.categoryId, { name: 1, slug: 1, sortOrder: 1, isActive: 1 })
+      .lean();
+    if (!category)
+      throw formError({
+        categoryId: 'This category no longer exists. Pick another one.',
+      });
+
+    const slug = dto.slug
+      ? await this.checkSlugIsFree(dto.slug)
+      : await this.freeSlugFrom(dto.name);
+
+    const variants = dto.variants.map((v) => ({
+      ...v,
+      price: toMinor(v.price),
+    }));
+
+    if (variants.length > 0 && !variants.some((v) => v.isDefault))
+      variants[0].isDefault = true;
+
+    const doc = new this.itemModel({
+      name: dto.name,
+      slug,
+      description: dto.description ?? '',
+      categoryId: category._id,
+      price: dto.price === undefined ? undefined : toMinor(dto.price),
+      compareAtPrice:
+        dto.compareAtPrice === undefined
+          ? undefined
+          : toMinor(dto.compareAtPrice),
+      variants,
+      modifierGroups: dto.modifierGroups.map((group) => ({
+        ...group,
+        options: group.options.map((option) => ({
+          ...option,
+          priceDelta: toMinor(option.priceDelta ?? 0),
+        })),
+      })),
+      dietaryTags: dto.dietaryTags,
+      allergens: dto.allergens,
+      spiceLevel: dto.spiceLevel,
+      badges: dto.badges,
+      calories: dto.calories,
+      prepTimeMinutes: dto.prepTimeMinutes,
+      isActive: dto.isActive,
+      isAvailable: dto.isAvailable,
+      sortOrder: dto.sortOrder ?? (await this.nextSortOrder(category._id)),
+    });
+
+    try {
+      await doc.validate();
+    } catch (error) {
+      throw toFormError(error);
+    }
+
+    let photo: StoredImage | undefined;
+    if (dto.image) {
+      photo = await this.media.keepMenuImage(dto.image);
+      doc.image = photo.key;
+      doc.imageBlur = photo.blurDataURL;
+    }
+
+    try {
+      await doc.save();
+    } catch (error) {
+      await this.media.deleteQuietly(photo?.key);
+      if (isDuplicateKey(error)) throw slugTaken(slug);
+      throw toFormError(error);
+    }
+
+    if (dto.image) void this.media.deleteQuietly(dto.image);
+
+    const row: MenuItemRow = {
+      ...doc.toObject(),
+      category: {
+        _id: category._id,
+        name: category.name,
+        slug: category.slug,
+        sortOrder: category.sortOrder,
+        isActive: category.isActive,
+      },
+    };
+    return toAdminMenuItem(row);
+  }
+
+  private async freeSlugFrom(name: string): Promise<string> {
+    const base = slugify(name) || 'item';
+    const root = RESERVED_SLUGS.has(base) ? `${base}-item` : base;
+    const taken = await this.itemModel
+      .find(
+        { slug: new RegExp(`^${escapeRegex(root)}(-\\d+)?$`) },
+        { slug: 1, _id: 0 },
+      )
+      .lean();
+    const used = new Set(taken.map((t) => t.slug));
+    if (!used.has(root)) return root;
+    let n = 2;
+    while (used.has(`${root}-${n}`)) n++;
+    return `${root}-${n}`;
+  }
+
+  private async checkSlugIsFree(slug: string): Promise<string> {
+    if (RESERVED_SLUGS.has(slug))
+      throw formError({ slug: `"${slug}" is reserved. Pick another one.` });
+    if (await this.itemModel.exists({ slug })) throw slugTaken(slug);
+    return slug;
+  }
+
+  private async nextSortOrder(categoryId: Types.ObjectId): Promise<number> {
+    const last = await this.itemModel
+      .findOne({ categoryId }, { sortOrder: 1 })
+      .sort({ sortOrder: -1 })
+      .lean();
+    return last ? last.sortOrder + 1 : 0;
+  }
+
+  async getAdminItem(slug: string): Promise<AdminMenuItemDetail> {
+    const [row] = await this.itemModel.aggregate<MenuItemRow>([
+      { $match: { slug } },
+      this.joinCategory(),
+      { $unwind: '$category' },
+      { $limit: 1 },
+    ]);
+    if (!row) throw new NotFoundException(`No dish with the URL id "${slug}"`);
+
+    const siblings = await this.itemModel
+      .find({ categoryId: row.categoryId }, { slug: 1, name: 1, _id: 0 })
+      .sort({ sortOrder: 1, name: 1, _id: 1 })
+      .lean();
+    const index = siblings.findIndex((s) => s.slug === row.slug);
+    const pick = (i: number) =>
+      siblings[i]
+        ? { slug: siblings[i].slug, name: siblings[i].name }
+        : undefined;
+
+    return {
+      ...toAdminMenuItem(row),
+      neighbors: {
+        position: index + 1,
+        total: siblings.length,
+        previous: pick(index - 1),
+        next: pick(index + 1),
+      },
+    };
+  }
+
   listPublicItems(
     query: ListMenuItemsQuery,
   ): Promise<Paginated<PublicMenuItem>> {
     return this.list(query, 'public', toPublicMenuItem);
   }
 
-  /** Admin panel: everything, including hidden dishes and hidden categories. */
   listAdminItems(
     query: AdminListMenuItemsQuery,
   ): Promise<Paginated<AdminMenuItem>> {
     return this.list(query, 'admin', toAdminMenuItem);
   }
 
-  /**
-   * The numbers at the top of the admin menu page and the category filter.
-   * Counts ignore the current search on purpose: they describe the whole menu.
-   */
   async summary(): Promise<MenuSummary> {
     const [totals] = await this.itemModel.aggregate<MenuSummary['totals']>([
       this.joinCategory(),
@@ -171,6 +346,7 @@ export class MenuService {
   ): Promise<Paginated<T>> {
     const { page, limit } = query;
     const terms = searchTerms(query.search);
+
     const sort: MenuSort =
       query.sort === 'relevance' || !query.sort
         ? terms.length
@@ -243,3 +419,32 @@ export class MenuService {
     };
   }
 }
+
+function formError(
+  errors: Record<string, string>,
+  message = 'Please fix the highlighted fields',
+) {
+  return new BadRequestException({ statusCode: 400, message, errors });
+}
+
+function slugTaken(slug: string) {
+  const message = `Another dish already uses "${slug}".`;
+  return new ConflictException({
+    statusCode: 409,
+    message,
+    errors: { slug: message },
+  });
+}
+
+function toFormError(error: unknown): unknown {
+  if (!(error instanceof MongooseError.ValidationError)) return error;
+  const errors: Record<string, string> = {};
+  for (const [path, issue] of Object.entries(error.errors))
+    errors[path] = issue.message;
+  return formError(errors);
+}
+
+const isDuplicateKey = (error: unknown) =>
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { code?: number }).code === 11000;

@@ -33,11 +33,17 @@ export function displayPrice(item: Pick<AdminMenuItem, "price" | "variants">): {
 
 export function mediaSrc(image: string | undefined | null): string | null {
   if (!image) return null;
-  if (/^https?:\/\//i.test(image) || image.startsWith("/")) return image;
+  if (/^(https?:|blob:|data:)/i.test(image) || image.startsWith("/"))
+    return image;
   return `/${image}`;
 }
 
-export const isRemote = (src: string) => /^https?:\/\//i.test(src);
+const MEDIA_URL = (process.env.NEXT_PUBLIC_MEDIA_URL ?? "").replace(/\/+$/, "");
+
+export function canOptimize(src: string): boolean {
+  if (src.startsWith("/")) return true;
+  return MEDIA_URL !== "" && src.startsWith(`${MEDIA_URL}/`);
+}
 
 const LABELS: Record<string, string> = {
   "chefs-pick": "Chef's pick",

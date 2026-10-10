@@ -8,3 +8,6 @@ export const Authorize = (...permissions: Permission[]) =>
     SetMetadata(PERMISSIONS_KEY, permissions),
     UseGuards(JwtAuthGuard, PermissionsGuard),
   );
+
+export const RequirePermissions = (...permissions: Permission[]) =>
+  SetMetadata(PERMISSIONS_KEY, permissions);

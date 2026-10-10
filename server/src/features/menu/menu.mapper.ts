@@ -1,5 +1,6 @@
 import type { Types } from 'mongoose';
-import { PRICE_UNIT } from 'lib/constants/menuConstants';
+import { mediaUrl } from 'lib/media-url';
+import { fromMinor } from 'lib/money';
 import type { MenuItem, ModifierGroup, Variant } from 'src/schemas/item.schema';
 
 export type MenuItemRow = MenuItem & {
@@ -13,8 +14,7 @@ export type MenuItemRow = MenuItem & {
   };
 };
 
-const money = (minor: number | undefined | null) =>
-  minor == null ? undefined : minor / PRICE_UNIT;
+const money = fromMinor;
 
 export function toPublicMenuItem(row: MenuItemRow) {
   return {
@@ -22,7 +22,8 @@ export function toPublicMenuItem(row: MenuItemRow) {
     slug: row.slug,
     name: row.name,
     description: row.description,
-    image: row.image,
+    image: mediaUrl(row.image),
+    imageBlur: row.imageBlur,
     category: { slug: row.category.slug, name: row.category.name },
     price: money(row.price),
     compareAtPrice: money(row.compareAtPrice),
