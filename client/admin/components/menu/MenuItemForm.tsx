@@ -57,8 +57,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { createMenuItem, uploadMenuImage } from "@/admin/lib/menu/actions";
-import { formatPrice, tagLabel } from "@/admin/lib/menu/format";
+import {
+  createMenuItem,
+  updateMenuItem,
+  uploadMenuImage,
+} from "@/admin/lib/menu/actions";
+import {
+  canOptimize,
+  formatPrice,
+  mediaSrc,
+  tagLabel,
+} from "@/admin/lib/menu/format";
 import {
   ALLERGENS,
   DIETARY_TAGS,
@@ -73,6 +82,7 @@ import {
   newVariant,
   previewSlug,
   SPICE_LEVELS,
+  toItemFormValues,
   type MenuItemFormValues,
   type ModifierGroupValues,
 } from "@/admin/lib/menu/item-schema";
@@ -81,7 +91,7 @@ import {
   MENU_PAGE_PATH,
   menuHref,
 } from "@/admin/lib/menu/params";
-import type { MenuSummary } from "@/admin/lib/menu/types";
+import type { AdminMenuItem, MenuSummary } from "@/admin/lib/menu/types";
 import { Badges, DietIcons } from "./MenuClient";
 
 type Category = MenuSummary["categories"][number];
@@ -92,6 +102,7 @@ type Props = {
   currency: string;
   initialCategoryId?: string;
   categoriesError?: string;
+  item?: AdminMenuItem;
 };
 
 const PHOTO_MUTATION = ["menu", "photo-upload"] as const;
@@ -110,7 +121,9 @@ export function MenuItemForm({
   currency,
   initialCategoryId,
   categoriesError,
+  item,
 }: Props) {
+  const editing = item !== undefined;
   const router = useRouter();
   const firstCategory =
     categories.find((c) => c.id === initialCategoryId)?.id ??
@@ -120,7 +133,9 @@ export function MenuItemForm({
 
   const form = useForm<Values>({
     resolver: zodResolver(menuItemFormSchema),
-    defaultValues: emptyMenuItem(firstCategory),
+    defaultValues: item
+      ? toItemFormValues(item, firstCategory)
+      : emptyMenuItem(firstCategory),
     mode: "onTouched",
   });
   const { control, formState } = form;
@@ -132,15 +147,31 @@ export function MenuItemForm({
 
   const save = useMutation({
     mutationFn: async (values: Values) => {
-      const result = await createMenuItem(values);
+      const result = item
+        ? await updateMenuItem(item.id, values, {
+            image: item.image ?? null,
+            version: item.updatedAt,
+          })
+        : await createMenuItem(values);
       if (!result.ok) throw new SaveError(result.message, result.fieldErrors);
       return result.data;
     },
-    onSuccess: (item) => {
+    onSuccess: (saved) => {
+      if (editing) {
+        toast.add({
+          title: "Changes saved",
+          description: saved.name,
+          type: "success",
+        });
+        setLeaving(true);
+        router.push(`${MENU_PAGE_PATH}/${saved.slug}`);
+        router.refresh();
+        return;
+      }
       toast.add({
-        title: `${item.name} is on the menu`,
-        description: item.isActive
-          ? `Added to ${item.category.name}.`
+        title: `${saved.name} is on the menu`,
+        description: saved.isActive
+          ? `Added to ${saved.category.name}.`
           : "Saved as a hidden draft.",
         type: "success",
       });
@@ -152,7 +183,7 @@ export function MenuItemForm({
         setLeaving(true);
         router.push(
           menuHref(DEFAULT_FILTERS, {
-            category: item.category.slug,
+            category: saved.category.slug,
             sort: "newest",
           }),
         );
@@ -170,7 +201,7 @@ export function MenuItemForm({
         );
       }
       toast.add({
-        title: "The dish wasn't saved",
+        title: editing ? "The changes weren't saved" : "The dish wasn't saved",
         description: error.message,
         type: "error",
       });
@@ -191,6 +222,7 @@ export function MenuItemForm({
   }, [unsaved]);
 
   const busy = save.isPending || photoUploading;
+  const backHref = item ? `${MENU_PAGE_PATH}/${item.slug}` : MENU_PAGE_PATH;
   const errorCount = Object.keys(formState.errors).length;
 
   return (
@@ -215,17 +247,21 @@ export function MenuItemForm({
     >
       <header className="pt-6 pb-6 lg:pt-10">
         <Link
-          href={MENU_PAGE_PATH}
-          className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          href={backHref}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
-          <ArrowLeft className="size-4" /> Menu
+          <ArrowLeft className="size-4 shrink-0" />
+          <span className="truncate">{item ? item.name : "Menu"}</span>
         </Link>
         <h1 className="mt-3 text-[28px] leading-tight font-semibold tracking-tight sm:text-3xl">
-          New menu item
+          {editing ? "Edit dish" : "New menu item"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground sm:text-[15px]">
-          Add the photo, name and price. Everything else is optional and can be
-          changed later.
+          {editing
+            ? item.isVisible
+              ? "This dish is on the menu: guests see your changes as soon as you save."
+              : "This dish is hidden from guests, so you can change it freely."
+            : "Add the photo, name and price. Everything else is optional and can be changed later."}
         </p>
       </header>
 
@@ -236,6 +272,7 @@ export function MenuItemForm({
             control={control}
             currency={currency}
             categories={categories}
+            currentPhoto={item?.image}
           />
           <VisibilityCard control={control} />
         </aside>
@@ -245,6 +282,7 @@ export function MenuItemForm({
             control={control}
             categories={categories}
             categoriesError={categoriesError}
+            currentSlug={item?.slug}
           />
           <PricingSection form={form} currency={currency} />
           <ChoicesSection control={control} currency={currency} />
@@ -276,17 +314,23 @@ export function MenuItemForm({
                   ⌘ Enter
                 </kbd>
               </span>
+            ) : editing ? (
+              "No changes yet."
             ) : (
               "Fill in the dish, then create it."
             )}
           </p>
           <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
             <Link
-              href={MENU_PAGE_PATH}
+              href={backHref}
               onClick={(event) => {
                 if (
                   unsaved &&
-                  !window.confirm("Leave without saving this dish?")
+                  !window.confirm(
+                    editing
+                      ? "Leave without saving your changes?"
+                      : "Leave without saving this dish?",
+                  )
                 )
                   event.preventDefault();
               }}
@@ -303,21 +347,30 @@ export function MenuItemForm({
                 afterSave.current = "another";
                 void submit();
               }}
-              className="hidden h-10 rounded-lg px-4 md:inline-flex"
+              className={cn(
+                "hidden h-10 rounded-lg px-4",
+                !editing && "md:inline-flex",
+              )}
             >
               Save & add another
             </Button>
             <Button
               type="submit"
-              disabled={busy}
-              className="h-11 flex-1 rounded-xl px-5 text-[15px] font-semibold shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] sm:h-10 sm:flex-none sm:text-sm text-white"
+              disabled={busy || (editing && !formState.isDirty)}
+              className="h-11 flex-1 rounded-xl px-5 text-[15px] font-semibold shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] sm:h-10 sm:flex-none sm:text-sm"
             >
               {save.isPending ? (
                 <LoaderCircle className="size-4 animate-spin" />
               ) : (
                 <Check className="size-4" />
               )}
-              {save.isPending ? "Creating…" : "Create item"}
+              {editing
+                ? save.isPending
+                  ? "Saving…"
+                  : "Save changes"
+                : save.isPending
+                  ? "Creating…"
+                  : "Create item"}
             </Button>
           </div>
         </div>
@@ -370,10 +423,12 @@ function BasicsSection({
   control,
   categories,
   categoriesError,
+  currentSlug,
 }: {
   control: Control<Values>;
   categories: Category[];
   categoriesError?: string;
+  currentSlug?: string;
 }) {
   const name = useWatch({ control, name: "name" });
   const autoSlug = previewSlug(name) || "dish-name";
@@ -512,18 +567,33 @@ function BasicsSection({
                     event.target.value.toLowerCase().replace(/\s+/g, "-"),
                   )
                 }
-                placeholder={autoSlug}
+                placeholder={currentSlug ?? autoSlug}
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={100}
                 className={cn(inputClass, "rounded-l-none font-mono text-sm")}
               />
             </div>
-            <FieldDescription>
-              Leave empty to use{" "}
-              <span className="font-mono text-foreground/80">{autoSlug}</span>.
-              It can&apos;t change once the dish is live.
-            </FieldDescription>
+            {currentSlug ? (
+              field.value && field.value !== currentSlug ? (
+                <p className="flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-300">
+                  <CircleAlert className="mt-0.5 size-4 shrink-0" />
+                  Links to /menu/{currentSlug} will stop working (including the
+                  homepage dish picks in config.json).
+                </p>
+              ) : (
+                <FieldDescription>
+                  Renaming the dish keeps this id, so existing links keep
+                  working.
+                </FieldDescription>
+              )
+            ) : (
+              <FieldDescription>
+                Leave empty to use{" "}
+                <span className="font-mono text-foreground/80">{autoSlug}</span>
+                . It can&apos;t change once the dish is live.
+              </FieldDescription>
+            )}
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -1020,6 +1090,7 @@ function DietSection({ control }: { control: Control<Values> }) {
         render={({ field }) => (
           <ChipGroup
             label="Contains"
+            hint="The 14 allergens restaurants must declare in the EU and UK."
             options={ALLERGENS}
             value={field.value}
             onChange={field.onChange}
@@ -1149,21 +1220,32 @@ type Picked = {
   url: string;
   originalBytes: number;
   result?: { bytes: number; width: number; height: number };
+  current?: boolean;
 };
 
 function PreviewCard({
   control,
   currency,
   categories,
+  currentPhoto,
 }: {
   control: Control<Values>;
   currency: string;
   categories: Category[];
+  currentPhoto?: string;
 }) {
   const { field, fieldState } = useController({ control, name: "image" });
   const values = useWatch({ control });
   const inputRef = useRef<HTMLInputElement>(null);
-  const [picked, setPicked] = useState<Picked | null>(null);
+  const showCurrent = (): Picked | null =>
+    currentPhoto
+      ? {
+          url: mediaSrc(currentPhoto) ?? currentPhoto,
+          originalBytes: 0,
+          current: true,
+        }
+      : null;
+  const [picked, setPicked] = useState<Picked | null>(showCurrent);
   const [dragging, setDragging] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -1184,7 +1266,8 @@ function PreviewCard({
   });
 
   useEffect(
-    () => () => void (picked && URL.revokeObjectURL(picked.url)),
+    () => () =>
+      void (picked && !picked.current && URL.revokeObjectURL(picked.url)),
     [picked],
   );
 
@@ -1215,7 +1298,8 @@ function PreviewCard({
       },
       onError: (error) => {
         setProblem(error.message || "The photo couldn't be uploaded.");
-        setPicked(null);
+        setPicked(showCurrent());
+        field.onChange(currentPhoto ?? null);
       },
     });
   };
@@ -1242,6 +1326,17 @@ function PreviewCard({
     setProblem(null);
     upload.reset();
   };
+
+  const keepCurrent = () => {
+    field.onChange(currentPhoto ?? null);
+    setPicked(showCurrent());
+    setProblem(null);
+    upload.reset();
+  };
+  const photoChanged =
+    currentPhoto !== undefined &&
+    field.value !== currentPhoto &&
+    !upload.isPending;
 
   const error = problem ?? fieldState.error?.message;
   const variants = values.variants ?? [];
@@ -1286,7 +1381,8 @@ function PreviewCard({
               src={picked.url}
               alt=""
               fill
-              unoptimized
+              unoptimized={!picked.current || !canOptimize(picked.url)}
+              quality={90}
               sizes="340px"
               className="object-cover"
             />
@@ -1365,6 +1461,23 @@ function PreviewCard({
           )}
         </div>
       </div>
+
+      {photoChanged && (
+        <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
+          <span>
+            {field.value === null
+              ? "The photo will be removed when you save."
+              : "The new photo replaces the current one when you save."}
+          </span>
+          <button
+            type="button"
+            onClick={keepCurrent}
+            className="shrink-0 font-semibold text-foreground underline-offset-4 hover:underline"
+          >
+            Keep current
+          </button>
+        </div>
+      )}
 
       {error && (
         <p
@@ -1475,7 +1588,7 @@ function VisibilityCard({ control }: { control: Control<Values> }) {
             title="Show on the menu"
             description={
               field.value
-                ? "Guests can see it as soon as it's created."
+                ? "Guests see it on the menu."
                 : "Saved as a hidden draft."
             }
             checked={field.value}
@@ -1535,10 +1648,6 @@ const chipOn = "border-foreground bg-foreground text-background shadow-sm";
 const chipOff =
   "border-border bg-background text-foreground/80 hover:border-foreground/25 hover:text-foreground";
 
-/**
- * The Controller's field, spread onto the <input> ({...field} passes ref, name and onBlur along).
- * Reading field.ref by hand would trip the React Compiler's "no refs during render" rule.
- */
 type NumberField = {
   value: number | undefined;
   onChange: (v: number | undefined) => void;
@@ -2028,8 +2137,8 @@ async function prepareImage(file: File): Promise<File> {
     );
 
   let blob = mayHaveAlpha
-    ? await encode("image/webp", 0.92)
-    : await encode("image/jpeg", 0.9);
+    ? await encode("image/webp", 0.95)
+    : await encode("image/jpeg", 0.95);
   if (mayHaveAlpha && blob?.type !== "image/webp")
     blob = await encode("image/png");
   if (!blob || (webFriendly && blob.size >= file.size)) return file;

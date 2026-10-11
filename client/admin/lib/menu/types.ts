@@ -2,8 +2,17 @@ export type MenuVariant = {
   id: string;
   name: string;
   price: number;
+  salePrice?: number;
   isDefault?: boolean;
   isAvailable?: boolean;
+};
+
+export type DishSale = {
+  id: string;
+  name: string;
+  percentOff: number;
+  endsAt: string | null;
+  timezone: string;
 };
 
 export type MenuModifierGroup = {
@@ -29,7 +38,9 @@ export type AdminMenuItem = {
   imageBlur?: string;
   category: { slug: string; name: string; isActive: boolean };
   price: number;
+  salePrice?: number;
   compareAtPrice?: number;
+  sale?: DishSale;
   variants: MenuVariant[];
   modifierGroups: MenuModifierGroup[];
   dietaryTags: string[];

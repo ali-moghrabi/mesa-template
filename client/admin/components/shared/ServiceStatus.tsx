@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import type { SiteConfig } from "@/config/schema";
+import type { OpeningHours } from "@/lib/opening-hours";
 import { OpenStatus } from "@/components/common/OpenStatus";
 
 type Props = {
-  hours: SiteConfig["business"]["hours"];
-  specialHours: SiteConfig["business"]["specialHours"];
-  timezone: string;
+  hours: OpeningHours | null;
 };
 
-export function ServiceStatus({ hours, specialHours, timezone }: Props) {
+export function ServiceStatus({ hours }: Props) {
+  const timezone = hours?.timezone ?? "UTC";
   const [today, setToday] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,8 +37,6 @@ export function ServiceStatus({ hours, specialHours, timezone }: Props) {
       {hours ? (
         <OpenStatus
           hours={hours}
-          specialHours={specialHours}
-          timezone={timezone}
           className="mt-1 text-xs text-muted-foreground"
         />
       ) : (

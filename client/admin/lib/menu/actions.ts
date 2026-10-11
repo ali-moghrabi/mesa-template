@@ -10,6 +10,8 @@ import {
 import {
   menuItemFormSchema,
   toCreatePayload,
+  toUpdatePayload,
+  type EditOrigin,
   type MenuItemFormValues,
 } from "./item-schema";
 import type { AdminMenuCategory, AdminMenuItem, UploadedImage } from "./types";
@@ -86,5 +88,83 @@ export async function createMenuCategory(
   return adminFetch<AdminMenuCategory>("/admin/menu/categories", {
     method: "POST",
     body: toCategoryPayload(parsed.data),
+  });
+}
+
+export async function updateMenuItem(
+  id: string,
+  values: MenuItemFormValues,
+  origin: EditOrigin,
+): Promise<ApiResult<AdminMenuItem>> {
+  await requireTeam("menu:manage");
+
+  const parsed = menuItemFormSchema.safeParse(values);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues)
+      fieldErrors[issue.path.join(".")] ??= issue.message;
+    return {
+      ok: false,
+      status: 400,
+      message: "Please fix the highlighted fields",
+      fieldErrors,
+    };
+  }
+
+  return adminFetch<AdminMenuItem>(
+    `/admin/menu/items/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: toUpdatePayload(parsed.data, origin),
+    },
+  );
+}
+
+const OBJECT_ID = /^[0-9a-f]{24}$/i;
+
+export async function deleteMenuItems(
+  ids: string[],
+): Promise<ApiResult<{ deleted: number; photosDeleted: number }>> {
+  await requireTeam("menu:manage");
+  const unique = [...new Set(ids)];
+  if (
+    unique.length === 0 ||
+    unique.length > 100 ||
+    !unique.every((id) => OBJECT_ID.test(id))
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Pick between 1 and 100 dishes.",
+    };
+  }
+  return adminFetch("/admin/menu/items/delete", {
+    method: "POST",
+    body: { ids: unique },
+  });
+}
+
+export async function deleteMenuCategories(
+  ids: string[],
+  deleteDishes: boolean,
+): Promise<
+  ApiResult<{ deleted: number; dishesDeleted: number; photosDeleted: number }>
+> {
+  await requireTeam("menu:manage");
+  const unique = [...new Set(ids)];
+  if (
+    unique.length === 0 ||
+    unique.length > 50 ||
+    !unique.every((id) => OBJECT_ID.test(id))
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Pick between 1 and 50 categories.",
+    };
+  }
+  return adminFetch("/admin/menu/categories/delete", {
+    method: "POST",
+    body: { ids: unique, deleteDishes: deleteDishes === true },
   });
 }

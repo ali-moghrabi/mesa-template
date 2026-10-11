@@ -36,8 +36,15 @@ import {
   DietIcons,
   DishThumb,
   Highlight,
+  MenuSelection,
+  SaleBadge,
+  SelectCardOverlay,
+  SelectCell,
+  SelectHeadCell,
+  SelectToggle,
   StatusPill,
 } from "./MenuClient";
+import QueryWrapper from "@/components/providers/query-wrapper";
 
 type Props = {
   filters: MenuFilters;
@@ -140,9 +147,9 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
   const first = (meta.page - 1) * meta.limit + 1;
   const last = first + items.length - 1;
 
-  return (
-    <section aria-label="Dishes">
-      <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+  const list = (
+    <>
+      <div className="mb-3 flex min-h-8 items-center justify-between gap-3 px-1">
         <p className="text-sm text-muted-foreground" aria-live="polite">
           {filters.search ? (
             <>
@@ -163,15 +170,20 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
             </>
           )}
         </p>
-        <p className="text-xs text-muted-foreground tabular-nums">
-          {first}–{last} of {meta.total}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {first}–{last} of {meta.total}
+          </p>
+          <SelectToggle />
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
+        {/* Wide screens: a table */}
         <table className="hidden w-full text-sm lg:table">
           <thead>
             <tr className="border-b border-border bg-muted/50 text-left text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+              <SelectHeadCell />
               <th scope="col" className="py-2.5 pr-3 pl-5 font-semibold">
                 Dish
               </th>
@@ -193,8 +205,9 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
             {items.map((item) => (
               <tr
                 key={item.id}
-                className="group transition-colors hover:bg-muted/40"
+                className="group transition-colors hover:bg-muted/40 has-data-[selected=true]:bg-primary/6"
               >
+                <SelectCell id={item.id} name={item.name} />
                 <td className="py-3 pr-3 pl-5">
                   <div className="flex min-w-0 items-center gap-3.5">
                     <DishThumb
@@ -210,6 +223,7 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <DishName item={item} search={filters.search} />
                         <DietIcons item={item} />
+                        <SaleBadge sale={item.sale} />
                         <Badges badges={item.badges} />
                       </div>
                       {item.description && (
@@ -279,6 +293,7 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                   <StatusPill item={item} />
+                  <SaleBadge sale={item.sale} />
                   <Badges badges={item.badges} />
                 </div>
               </div>
@@ -286,12 +301,36 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
                 className="mt-1 size-4 shrink-0 self-center text-muted-foreground/60"
                 aria-hidden
               />
+              <SelectCardOverlay id={item.id} name={item.name} />
             </li>
           ))}
         </ul>
       </div>
 
       <MenuPagination filters={filters} meta={meta} />
+    </>
+  );
+
+  return (
+    <section aria-label="Dishes">
+      <QueryWrapper>
+        {canManage ? (
+          <MenuSelection
+            key={items.map((item) => item.id).join()}
+            dishes={items.map(({ id, name, image, imageBlur, isVisible }) => ({
+              id,
+              name,
+              image,
+              imageBlur,
+              isVisible,
+            }))}
+          >
+            {list}
+          </MenuSelection>
+        ) : (
+          list
+        )}
+      </QueryWrapper>
     </section>
   );
 }
@@ -309,6 +348,7 @@ function DishName({
 }) {
   const text = <Highlight text={item.name} search={search} />;
   const base = cn("font-semibold leading-snug text-foreground", className);
+
   return (
     <Link
       href={itemHref(item)}
@@ -359,14 +399,15 @@ function Price({
   currency: string;
   className?: string;
 }) {
-  const { amount, from } = displayPrice(item);
-  const onSale =
-    item.variants.length === 0 &&
-    item.compareAtPrice != null &&
-    item.compareAtPrice > item.price;
+  const { amount, from, was } = displayPrice(item);
   return (
     <div className={cn("text-right leading-tight", className)}>
-      <p className="font-semibold tabular-nums">
+      <p
+        className={cn(
+          "font-semibold tabular-nums",
+          item.sale && "text-primary",
+        )}
+      >
         {from && (
           <span className="mr-1 text-xs font-normal text-muted-foreground">
             from
@@ -374,9 +415,9 @@ function Price({
         )}
         {formatPrice(amount, currency)}
       </p>
-      {onSale ? (
+      {was !== undefined ? (
         <p className="text-xs text-muted-foreground tabular-nums line-through">
-          {formatPrice(item.compareAtPrice!, currency)}
+          {formatPrice(was, currency)}
         </p>
       ) : item.variants.length > 1 ? (
         <p className="text-xs text-muted-foreground">

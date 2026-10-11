@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsISO8601,
   IsMongoId,
   IsNumber,
   IsOptional,
@@ -64,6 +65,10 @@ const Name = (max = 40) =>
   );
 
 export class VariantDto {
+  @IsOptional()
+  @IsMongoId()
+  id?: string;
+
   @Name()
   name!: string;
 
@@ -80,6 +85,10 @@ export class VariantDto {
 }
 
 export class ModifierOptionDto {
+  @IsOptional()
+  @IsMongoId()
+  id?: string;
+
   @Name()
   name!: string;
 
@@ -97,6 +106,10 @@ export class ModifierOptionDto {
 }
 
 export class ModifierGroupDto {
+  @IsOptional()
+  @IsMongoId()
+  id?: string;
+
   @Name()
   name!: string;
 
@@ -224,4 +237,14 @@ export class CreateMenuItemDto {
   @Min(0)
   @Max(100_000)
   sortOrder?: number;
+}
+
+export class UpdateMenuItemDto extends CreateMenuItemDto {
+  @IsOptional()
+  @IsBoolean()
+  removeImage?: boolean;
+
+  @IsOptional()
+  @IsISO8601()
+  version?: string;
 }

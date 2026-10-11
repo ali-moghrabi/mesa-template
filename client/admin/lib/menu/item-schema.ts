@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AdminMenuItem } from "./types";
 
 export const DIETARY_TAGS = [
   "vegetarian",
@@ -42,7 +43,7 @@ export const MAX_GROUPS = 10;
 export const MAX_OPTIONS = 30;
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const RESERVED_SLUGS = new Set(["new", "edit", "categories"]);
+const RESERVED_SLUGS = new Set(["new", "edit", "categories", "promotions"]);
 
 const hasAtMostDecimals = (value: number) =>
   Math.abs(
@@ -61,7 +62,10 @@ const shortName = z
   .min(1, "Give it a name")
   .max(40, "40 characters at most");
 
+const existingId = z.string().optional();
+
 const variantSchema = z.object({
+  id: existingId,
   name: shortName,
   price: money,
   isDefault: z.boolean(),
@@ -69,6 +73,7 @@ const variantSchema = z.object({
 });
 
 const optionSchema = z.object({
+  id: existingId,
   name: shortName,
   priceDelta: money,
   isDefault: z.boolean(),
@@ -76,6 +81,7 @@ const optionSchema = z.object({
 });
 
 const groupSchema = z.object({
+  id: existingId,
   name: shortName,
   minSelect: z.number().int().min(0).max(MAX_OPTIONS),
   maxSelect: z.number().int().min(1, "At least 1").max(MAX_OPTIONS),
@@ -283,4 +289,72 @@ export function previewSlug(name: string): string {
     .slice(0, 80)
     .replace(/-+$/g, "");
   return RESERVED_SLUGS.has(base) ? `${base}-item` : base;
+}
+
+export function toItemFormValues(
+  item: AdminMenuItem,
+  categoryId: string,
+): MenuItemFormValues {
+  return {
+    name: item.name,
+    slug: item.slug,
+    description: item.description ?? "",
+    categoryId,
+    image: item.image ?? null,
+    price: item.variants.length ? undefined : item.price,
+    compareAtPrice: item.compareAtPrice ?? undefined,
+    variants: item.variants.map((v) => ({
+      id: v.id,
+      name: v.name,
+      price: v.price,
+      isDefault: v.isDefault ?? false,
+      isAvailable: v.isAvailable ?? true,
+    })),
+    modifierGroups: item.modifierGroups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      minSelect: g.minSelect,
+      maxSelect: g.maxSelect,
+      options: g.options.map((o) => ({
+        id: o.id,
+        name: o.name,
+        priceDelta: o.priceDelta ?? 0,
+        isDefault: o.isDefault ?? false,
+        isAvailable: o.isAvailable ?? true,
+      })),
+    })),
+    dietaryTags: item.dietaryTags.filter(
+      (t): t is (typeof DIETARY_TAGS)[number] =>
+        (DIETARY_TAGS as readonly string[]).includes(t),
+    ),
+    allergens: item.allergens.filter((a): a is (typeof ALLERGENS)[number] =>
+      (ALLERGENS as readonly string[]).includes(a),
+    ),
+    badges: item.badges.filter((b): b is (typeof MENU_BADGES)[number] =>
+      (MENU_BADGES as readonly string[]).includes(b),
+    ),
+    spiceLevel: item.spiceLevel,
+    calories: item.calories ?? undefined,
+    prepTimeMinutes: item.prepTimeMinutes ?? undefined,
+    isActive: item.isActive,
+    isAvailable: item.isAvailable,
+  };
+}
+
+export type EditOrigin = { image: string | null; version: string };
+
+export function toUpdatePayload(
+  values: MenuItemFormValues,
+  origin: EditOrigin,
+) {
+  const rest = toCreatePayload({ ...values, image: null });
+  const photo =
+    values.image === origin.image
+      ? {}
+      : values.image === null
+        ? { removeImage: true }
+        : values.image.startsWith("tmp/")
+          ? { image: values.image }
+          : {};
+  return { ...rest, ...photo, version: origin.version };
 }

@@ -21,14 +21,48 @@ export function formatPrice(value: number, currency: string): string {
   return formatter.format(value);
 }
 
-export function displayPrice(item: Pick<AdminMenuItem, "price" | "variants">): {
+export type PriceView = {
   amount: number;
   from: boolean;
-} {
-  if (item.variants.length === 0) return { amount: item.price, from: false };
-  const prices = item.variants.map((v) => v.price);
-  const lowest = Math.min(...prices);
-  return { amount: lowest, from: prices.some((p) => p !== lowest) };
+  was?: number;
+  percentOff?: number;
+};
+
+export function displayPrice(
+  item: Pick<
+    AdminMenuItem,
+    "price" | "salePrice" | "compareAtPrice" | "variants" | "sale"
+  >,
+): PriceView {
+  const rows = item.variants.length
+    ? item.variants
+    : [{ price: item.price, salePrice: item.salePrice }];
+  const now = rows.map((r) => r.salePrice ?? r.price);
+  const lowest = Math.min(...now);
+  const cheapest = rows[now.indexOf(lowest)];
+  const from = now.some((p) => p !== lowest);
+
+  if (item.sale && cheapest.salePrice !== undefined) {
+    return {
+      amount: lowest,
+      from,
+      was: cheapest.price,
+      percentOff: item.sale.percentOff,
+    };
+  }
+  if (
+    item.variants.length === 0 &&
+    item.compareAtPrice != null &&
+    item.compareAtPrice > item.price
+  ) {
+    return {
+      amount: item.price,
+      from: false,
+      was: item.compareAtPrice,
+      percentOff: Math.round((1 - item.price / item.compareAtPrice) * 100),
+    };
+  }
+  return { amount: lowest, from };
 }
 
 export function mediaSrc(image: string | undefined | null): string | null {

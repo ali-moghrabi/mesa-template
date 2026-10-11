@@ -1,31 +1,53 @@
-import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
-import { MENU_PAGE_PATH } from "@/admin/lib/menu/params";
+import { fetchAdminMenuItem, fetchMenuSummary } from "@/admin/lib/menu/api";
+import { MenuItemForm } from "@/admin/components/menu/MenuItemForm";
+import QueryWrapper from "@/components/providers/query-wrapper";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const { brand } = getConfig();
+  const result = await fetchAdminMenuItem(slug);
+  return {
+    title: `Edit ${result.ok ? result.data.name : "dish"} | ${brand.name} Admin`,
+  };
+}
 
 export default async function EditMenuItemPage({ params }: Props) {
   await requireTeam("menu:manage");
   const { slug } = await params;
+  const config = getConfig();
+
+  const [itemResult, summary] = await Promise.all([
+    fetchAdminMenuItem(slug),
+    fetchMenuSummary(),
+  ]);
+  if (
+    !itemResult.ok &&
+    (itemResult.status === 404 || itemResult.status === 400)
+  )
+    notFound();
+  if (!itemResult.ok) throw new Error(itemResult.message);
+
+  const item = itemResult.data;
+  const categories = summary.ok ? summary.data.categories : [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-8">
-      <Link
-        href={`${MENU_PAGE_PATH}/${slug}`}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> Back to the dish
-      </Link>
-      <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-border bg-card/60 px-6 py-20 text-center">
-        <span className="grid size-14 place-items-center rounded-2xl bg-primary/12 text-primary">
-          <Pencil className="size-6" />
-        </span>
-        <h1 className="mt-4 text-xl font-semibold tracking-tight">Edit dish</h1>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-          The edit form for this dish goes here.
-        </p>
-      </div>
-    </div>
+    <QueryWrapper>
+      <MenuItemForm
+        key={item.updatedAt}
+        item={item}
+        categories={categories}
+        currency={config.menu.currency.primary.code}
+        initialCategoryId={
+          categories.find((c) => c.slug === item.category.slug)?.id
+        }
+        categoriesError={summary.ok ? undefined : summary.message}
+      />
+    </QueryWrapper>
   );
 }

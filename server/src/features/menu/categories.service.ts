@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import type { Model, Types } from 'mongoose';
 import {
@@ -153,6 +157,61 @@ export class MenuCategoriesService {
       itemCount: 0,
       soldOutCount: 0,
     });
+  }
+
+  async deleteMany(
+    ids: string[],
+    deleteDishes: boolean,
+  ): Promise<{
+    deleted: number;
+    dishesDeleted: number;
+    photosDeleted: number;
+  }> {
+    const categories = await this.categoryModel
+      .find({ _id: { $in: ids } }, { name: 1, image: 1 })
+      .lean();
+    if (categories.length === 0)
+      throw new NotFoundException('These categories no longer exist');
+    const categoryIds = categories.map((c) => c._id);
+
+    if (!deleteDishes) {
+      const dishCount = await this.itemModel.countDocuments({
+        categoryId: { $in: categoryIds },
+      });
+      if (dishCount > 0) {
+        throw new ConflictException(
+          `${dishCount} ${dishCount === 1 ? 'dish is' : 'dishes are'} still in ${
+            categories.length === 1 ? categories[0].name : 'these categories'
+          }. Delete them too, or move them to another category first.`,
+        );
+      }
+    }
+
+    const { deletedCount } = await this.categoryModel.deleteMany({
+      _id: { $in: categoryIds },
+    });
+
+    let dishPhotos: (string | undefined)[] = [];
+    let dishesDeleted = 0;
+    if (deleteDishes) {
+      const dishes = await this.itemModel
+        .find({ categoryId: { $in: categoryIds } }, { image: 1 })
+        .lean();
+      if (dishes.length) {
+        dishesDeleted = (
+          await this.itemModel.deleteMany({
+            _id: { $in: dishes.map((d) => d._id) },
+          })
+        ).deletedCount;
+        dishPhotos = dishes.map((d) => d.image);
+      }
+    }
+
+    const photosDeleted = await this.media.deleteManyQuietly([
+      ...categories.map((c) => c.image),
+      ...dishPhotos,
+    ]);
+    return { deleted: deletedCount, dishesDeleted, photosDeleted };
   }
 
   private async freeSlugFrom(name: string): Promise<string> {

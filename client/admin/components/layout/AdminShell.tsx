@@ -26,7 +26,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { SiteConfig } from "@/config/schema";
+import type { OpeningHours } from "@/lib/opening-hours";
 import { logoutUser } from "@/lib/actions/auth.actions";
 import { cn } from "@/lib/utils";
 import {
@@ -34,7 +34,7 @@ import {
   SIDEBAR_COOKIE,
   type AdminIcon,
   type AdminNavGroup,
-} from "../../lib/nav";
+} from "@/admin/lib/nav";
 import { ServiceStatus } from "../shared/ServiceStatus";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
@@ -58,7 +58,7 @@ export type AdminShellProps = {
   brandName: string;
   user: Pick<IUser, "firstName" | "lastName" | "email" | "role">;
   groups: AdminNavGroup[];
-  business: Pick<SiteConfig["business"], "hours" | "specialHours" | "timezone">;
+  business: { hours: OpeningHours | null };
   initialCollapsed: boolean;
   counts?: Partial<Record<AdminIcon, number>>;
   children: ReactNode;
@@ -83,10 +83,12 @@ export function AdminShell({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
-  const [drawerOpenedOn, setDrawerOpenedOn] = useState<string | null>(null);
-  const mobileOpen = drawerOpenedOn === pathname;
-  const openDrawer = () => setDrawerOpenedOn(pathname);
-  const closeDrawer = useCallback(() => setDrawerOpenedOn(null), []);
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const mobileOpen = openOn === pathname;
+  const setMobileOpen = useCallback(
+    (open: boolean) => setOpenOn(open ? pathname : null),
+    [pathname],
+  );
 
   const toggleCollapsed = useCallback(() => {
     setCollapsed((value) => {
@@ -95,18 +97,17 @@ export function AdminShell({
       return next;
     });
   }, []);
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
         event.preventDefault();
         toggleCollapsed();
       }
-      if (event.key === "Escape") closeDrawer();
+      if (event.key === "Escape") setOpenOn(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleCollapsed, closeDrawer]);
+  }, [setMobileOpen, toggleCollapsed]);
 
   useEffect(() => {
     document.documentElement.style.overflow = mobileOpen ? "hidden" : "";
@@ -151,11 +152,11 @@ export function AdminShell({
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md lg:hidden">
         <button
           type="button"
-          onClick={openDrawer}
+          onClick={() => setMobileOpen(true)}
           aria-label="Open admin menu"
           aria-expanded={mobileOpen}
           aria-controls="admin-drawer"
-          className="-ml-1.5 grid size-10 place-items-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 cursor-pointer"
+          className="-ml-1.5 grid size-10 place-items-center rounded-lg hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <MenuIcon aria-hidden="true" className="size-5" />
         </button>
@@ -165,7 +166,7 @@ export function AdminShell({
 
       <div
         aria-hidden="true"
-        onClick={closeDrawer}
+        onClick={() => setMobileOpen(false)}
         className={cn(
           "fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
@@ -175,9 +176,6 @@ export function AdminShell({
         id="admin-drawer"
         aria-label="Admin"
         inert={!mobileOpen}
-        onClick={(event) => {
-          if ((event.target as HTMLElement).closest("a")) closeDrawer();
-        }}
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[288px] max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground shadow-2xl",
           "transition-transform duration-300 ease-out motion-reduce:transition-none lg:hidden",
@@ -186,16 +184,16 @@ export function AdminShell({
       >
         <button
           type="button"
-          onClick={closeDrawer}
+          onClick={() => setMobileOpen(false)}
           aria-label="Close admin menu"
-          className="absolute top-4 right-3 grid size-9 place-items-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="absolute top-4 right-3 grid size-9 place-items-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
           <X aria-hidden="true" className="size-4" />
         </button>
         {content(false)}
       </aside>
 
-      <main id="admin-main" className="flex-1">
+      <main id="admin-main" className="min-w-0 flex-1">
         {children}
       </main>
     </div>
@@ -250,11 +248,7 @@ function SidebarContent({
 
       {!compact && (
         <div className="px-3 pb-3">
-          <ServiceStatus
-            hours={business.hours}
-            specialHours={business.specialHours}
-            timezone={business.timezone}
-          />
+          <ServiceStatus hours={business.hours} />
         </div>
       )}
 
@@ -409,7 +403,7 @@ function BrandMark({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-[15px] font-bold text-white shadow-sm ring-1 ring-black/5"
+      className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-[15px] font-bold text-primary-foreground shadow-sm ring-1 ring-black/5"
     >
       {name.charAt(0).toUpperCase()}
     </span>
@@ -431,7 +425,7 @@ function CollapseButton({
       aria-label={
         collapsed ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)"
       }
-      className="cursor-pointer grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <Icon aria-hidden="true" className="size-4.5" />
     </button>
@@ -473,7 +467,7 @@ function UserCard({
       onClick={signOut}
       disabled={signingOut}
       aria-label="Sign out"
-      className="cursor-pointer grid size-9 shrink-0 place-items-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
+      className="grid size-9 shrink-0 place-items-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-60"
     >
       {signingOut ? (
         <Loader2 aria-hidden="true" className="size-4 animate-spin" />

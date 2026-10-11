@@ -24,7 +24,7 @@ export const MAX_SERVING_WINDOWS = 7;
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const RESERVED_SLUGS = new Set(["new", "edit", "categories"]);
+const RESERVED_SLUGS = new Set(["new", "edit", "categories", "promotions"]);
 
 const servingWindowSchema = z
   .object({

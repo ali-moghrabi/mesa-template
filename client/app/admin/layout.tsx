@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
+import { ThemeProvider } from "next-themes";
 import { getConfig } from "@/config/loader";
+import { getOpeningHours } from "@/lib/opening-hours-server";
 import { requireTeam } from "@/lib/auth/get-user";
-import { buildAdminNav, SIDEBAR_COOKIE } from "@/admin/lib/nav";
 import { AdminShell } from "@/admin/components/layout/AdminShell";
+import { buildAdminNav, SIDEBAR_COOKIE } from "@/admin/lib/nav";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -27,19 +29,23 @@ export default async function AdminLayout({
   });
 
   return (
-    <AdminShell
-      brandName={config.brand.name}
-      user={user}
-      groups={groups}
-      business={{
-        hours: config.business.hours,
-        specialHours: config.business.specialHours,
-        timezone: config.business.timezone,
-      }}
-      initialCollapsed={collapsed}
-      counts={{}}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      storageKey="mesa-admin-theme"
+      disableTransitionOnChange
     >
-      {children}
-    </AdminShell>
+      <AdminShell
+        brandName={config.brand.name}
+        user={user}
+        groups={groups}
+        business={{ hours: await getOpeningHours() }}
+        initialCollapsed={collapsed}
+        counts={{}}
+      >
+        {children}
+      </AdminShell>
+    </ThemeProvider>
   );
 }

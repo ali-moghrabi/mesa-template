@@ -21,7 +21,13 @@ import {
   menuHref,
 } from "@/admin/lib/menu/params";
 import type { AdminMenuCategory } from "@/admin/lib/menu/types";
-import { DishThumb } from "@/admin/components/menu/MenuClient";
+import {
+  CategorySelection,
+  DishThumb,
+  SelectCardOverlay,
+  SelectToggle,
+} from "@/admin/components/menu/MenuClient";
+import QueryWrapper from "@/components/providers/query-wrapper";
 
 export function generateMetadata(): Metadata {
   const { brand } = getConfig();
@@ -40,8 +46,8 @@ export default async function MenuCategoriesPage() {
   const hidden = categories.filter((c) => !c.isActive).length;
   const dishes = categories.reduce((sum, c) => sum + c.itemCount, 0);
 
-  return (
-    <div className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-8">
+  const page = (
+    <>
       <header className="flex flex-col gap-4 pt-6 pb-6 sm:flex-row sm:items-end sm:justify-between lg:pt-10">
         <div className="min-w-0">
           <Link
@@ -61,7 +67,12 @@ export default async function MenuCategoriesPage() {
                 }. Guests see them in this order.`}
           </p>
         </div>
-        {canManage && categories.length > 0 && <NewCategoryButton />}
+        {canManage && categories.length > 0 && (
+          <div className="flex gap-2">
+            <SelectToggle className="h-10 flex-1 rounded-xl border border-border bg-card px-3.5 text-sm shadow-xs sm:flex-none" />
+            <NewCategoryButton />
+          </div>
+        )}
       </header>
 
       {!result.ok ? (
@@ -77,12 +88,18 @@ export default async function MenuCategoriesPage() {
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {categories.map((category, index) => (
-            <li key={category.id}>
+            <li key={category.id} className="relative">
               <CategoryCard category={category} position={index + 1} />
+              <SelectCardOverlay
+                id={category.id}
+                name={category.name}
+                corner="end"
+                className="rounded-2xl"
+              />
             </li>
           ))}
           {canManage && (
-            <li>
+            <li className="group-data-[selecting=true]/select:hidden">
               <Link
                 href={`${CATEGORIES_PATH}/new`}
                 className="group flex h-full min-h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/5"
@@ -98,6 +115,32 @@ export default async function MenuCategoriesPage() {
             </li>
           )}
         </ul>
+      )}
+    </>
+  );
+
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-8">
+      {canManage && categories.length > 0 ? (
+        <QueryWrapper>
+          <CategorySelection
+            key={categories.map((c) => c.id).join()}
+            categories={categories.map(
+              ({ id, name, image, imageBlur, isActive, itemCount }) => ({
+                id,
+                name,
+                image,
+                imageBlur,
+                isActive,
+                itemCount,
+              }),
+            )}
+          >
+            {page}
+          </CategorySelection>
+        </QueryWrapper>
+      ) : (
+        page
       )}
     </div>
   );
@@ -270,7 +313,7 @@ function NewCategoryButton() {
   return (
     <Link
       href={`${CATEGORIES_PATH}/new`}
-      className="group inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 sm:flex-none text-sm font-semibold text-white shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <Plus className="size-4.5 transition-transform group-hover:rotate-90" />
       New category

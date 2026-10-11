@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -142,6 +143,42 @@ export class MediaService {
         `Could not delete ${key}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  async deleteManyQuietly(
+    keys: (string | undefined | null)[],
+  ): Promise<number> {
+    const ours = [
+      ...new Set(
+        keys.filter(
+          (k): k is string =>
+            !!k && (k.startsWith('menu/') || k.startsWith('tmp/')),
+        ),
+      ),
+    ];
+    let deleted = 0;
+    for (let i = 0; i < ours.length; i += 1000) {
+      const chunk = ours.slice(i, i + 1000);
+      try {
+        const result = await this.s3.send(
+          new DeleteObjectsCommand({
+            Bucket: this.bucket,
+            Delete: {
+              Objects: chunk.map((key) => ({ Key: this.fullKey(key) })),
+              Quiet: true,
+            },
+          }),
+        );
+        for (const error of result.Errors ?? [])
+          this.logger.warn(`Could not delete ${error.Key}: ${error.Message}`);
+        deleted += chunk.length - (result.Errors?.length ?? 0);
+      } catch (error) {
+        this.logger.warn(
+          `Could not delete ${chunk.length} photos: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    return deleted;
   }
 
   private fullKey(key: string): string {

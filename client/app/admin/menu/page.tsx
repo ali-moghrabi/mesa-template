@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ExternalLink, LayoutGrid, Plus } from "lucide-react";
+import { ExternalLink, LayoutGrid, Percent, Plus } from "lucide-react";
 import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/auth/user-roles";
-import { fetchMenuSummary } from "@/admin/lib/menu/api";
+import { adminFetch, fetchMenuSummary } from "@/admin/lib/menu/api";
+import { PROMOTIONS_PATH, type AdminPromotion } from "@/admin/lib/promotions";
 import { MENU_PAGE_PATH, parseMenuFilters } from "@/admin/lib/menu/params";
 import type { MenuSummary } from "@/admin/lib/menu/types";
 import {
@@ -35,7 +36,13 @@ export default async function AdminMenuPage({ searchParams }: Props) {
   const config = getConfig();
   const filters = parseMenuFilters(await searchParams);
 
-  const summaryResult = await fetchMenuSummary();
+  const [summaryResult, promotions] = await Promise.all([
+    fetchMenuSummary(),
+    canManage ? adminFetch<AdminPromotion[]>("/admin/menu/promotions") : null,
+  ]);
+  const runningSales = promotions?.ok
+    ? promotions.data.filter((p) => p.status.state === "running").length
+    : 0;
   const summary = summaryResult.ok ? summaryResult.data : EMPTY_SUMMARY;
   const { totals, categories } = summary;
 
@@ -59,6 +66,29 @@ export default async function AdminMenuPage({ searchParams }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
+          {canManage && (
+            <Link
+              href={PROMOTIONS_PATH}
+              title={
+                runningSales
+                  ? `${runningSales} running now`
+                  : "Sales and happy hours"
+              }
+              className="relative inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Percent className="size-4" />
+              <span className="sr-only sm:not-sr-only">Promotions</span>
+              {runningSales > 0 && (
+                <span className="absolute -top-1 -right-1 flex size-3 sm:static sm:size-auto">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60 motion-reduce:hidden sm:hidden" />
+                  <span className="relative size-3 rounded-full border-2 border-card bg-emerald-500 sm:hidden" />
+                  <span className="hidden rounded-full bg-emerald-500/15 px-1.5 text-[11px] font-semibold text-emerald-700 tabular-nums sm:inline dark:text-emerald-300">
+                    {runningSales} live
+                  </span>
+                </span>
+              )}
+            </Link>
+          )}
           <Link
             href={`${MENU_PAGE_PATH}/categories`}
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"

@@ -22,6 +22,7 @@ import {
   TriangleAlert,
   Utensils,
   Zap,
+  Percent,
 } from "lucide-react";
 import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
@@ -30,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { fetchAdminMenuItem } from "@/admin/lib/menu/api";
 import { displayPrice, formatPrice, tagLabel } from "@/admin/lib/menu/format";
 import { SPICE_LEVELS } from "@/admin/lib/menu/item-schema";
+import { whenLabel } from "@/lib/promotions";
 import {
   DEFAULT_FILTERS,
   MENU_PAGE_PATH,
@@ -39,7 +41,11 @@ import type {
   AdminMenuItemDetail,
   MenuModifierGroup,
 } from "@/admin/lib/menu/types";
-import { Badges, DishThumb } from "@/admin/components/menu/MenuClient";
+import {
+  Badges,
+  DeleteDishButton,
+  DishThumb,
+} from "@/admin/components/menu/MenuClient";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -78,11 +84,7 @@ export default async function MenuItemPage({ params }: Props) {
   }
 
   const item = result.data;
-  const { amount, from } = displayPrice(item);
-  const onSale =
-    item.variants.length === 0 &&
-    item.compareAtPrice != null &&
-    item.compareAtPrice > item.price;
+  const { amount, from, was, percentOff } = displayPrice(item);
   const categoryHref = menuHref(DEFAULT_FILTERS, {
     category: item.category.slug,
   });
@@ -182,7 +184,12 @@ export default async function MenuItemPage({ params }: Props) {
           )}
 
           <div className="mt-5 flex items-end gap-3">
-            <p className="text-3xl font-semibold tracking-tight tabular-nums">
+            <p
+              className={cn(
+                "text-3xl font-semibold tracking-tight tabular-nums",
+                item.sale && "text-primary",
+              )}
+            >
               {from && (
                 <span className="mr-1.5 text-base font-normal text-muted-foreground">
                   from
@@ -190,17 +197,48 @@ export default async function MenuItemPage({ params }: Props) {
               )}
               {formatPrice(amount, currency)}
             </p>
-            {onSale && (
+            {was !== undefined && (
               <p className="pb-1 text-lg text-muted-foreground tabular-nums line-through">
-                {formatPrice(item.compareAtPrice!, currency)}
+                {formatPrice(was, currency)}
               </p>
             )}
-            {onSale && (
-              <span className="mb-1.5 rounded-md bg-emerald-500/12 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                −{Math.round((1 - item.price / item.compareAtPrice!) * 100)}%
+            {percentOff !== undefined && (
+              <span
+                className={cn(
+                  "mb-1.5 rounded-md px-1.5 py-0.5 text-xs font-semibold",
+                  item.sale
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+                )}
+              >
+                −{percentOff}%
               </span>
             )}
           </div>
+          {item.sale && (
+            <Link
+              href={`${MENU_PAGE_PATH}/promotions`}
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/[0.07] px-3 py-2 text-sm transition-colors hover:bg-primary/12"
+            >
+              <Percent className="size-4 text-primary" />
+              <span>
+                On sale with{" "}
+                <span className="font-semibold">{item.sale.name}</span>
+                {item.sale.endsAt && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · until{" "}
+                    {whenLabel(
+                      item.sale.endsAt,
+                      item.sale.timezone,
+                      undefined,
+                      "end",
+                    )}
+                  </span>
+                )}
+              </span>
+            </Link>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-2">
             <StatusChip
@@ -279,6 +317,18 @@ export default async function MenuItemPage({ params }: Props) {
             >
               More in {item.category.name}
             </Link>
+            {canManage && (
+              <DeleteDishButton
+                dish={{
+                  id: item.id,
+                  name: item.name,
+                  image: item.image,
+                  imageBlur: item.imageBlur,
+                  isVisible: item.isVisible,
+                }}
+                className="w-full sm:ml-auto sm:w-auto"
+              />
+            )}
           </div>
         </div>
       </section>
@@ -305,8 +355,23 @@ export default async function MenuItemPage({ params }: Props) {
                     )}
                   </span>
                   {variant.isAvailable === false && <SoldOutTag />}
-                  <span className="font-semibold tabular-nums">
-                    {formatPrice(variant.price, currency)}
+                  <span className="text-right leading-tight tabular-nums">
+                    <span
+                      className={cn(
+                        "block font-semibold",
+                        variant.salePrice !== undefined && "text-primary",
+                      )}
+                    >
+                      {formatPrice(
+                        variant.salePrice ?? variant.price,
+                        currency,
+                      )}
+                    </span>
+                    {variant.salePrice !== undefined && (
+                      <span className="block text-xs text-muted-foreground line-through">
+                        {formatPrice(variant.price, currency)}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}

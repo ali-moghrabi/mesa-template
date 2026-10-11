@@ -8,6 +8,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './features/auth/auth.module';
 import { MenuModule } from './features/menu/menu.module';
+import { TeamModule } from './features/team/team.module';
+import { SettingsModule } from './features/settings/settings.module';
+import { PromotionsModule } from './features/promotions/promotions.module';
+import { GalleryModule } from './features/gallery/gallery.module';
 
 @Module({
   imports: [
@@ -22,6 +26,10 @@ import { MenuModule } from './features/menu/menu.module';
     }),
     AuthModule,
     MenuModule,
+    TeamModule,
+    SettingsModule,
+    PromotionsModule,
+    GalleryModule,
   ],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
   controllers: [AppController],

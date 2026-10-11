@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 import { mediaUrl } from 'lib/media-url';
 import { fromMinor } from 'lib/money';
+import type { Pricing } from 'src/features/promotions/promotions.service';
 import type { MenuItem, ModifierGroup, Variant } from 'src/schemas/item.schema';
 
 export type MenuItemRow = MenuItem & {
@@ -16,7 +17,12 @@ export type MenuItemRow = MenuItem & {
 
 const money = fromMinor;
 
-export function toPublicMenuItem(row: MenuItemRow) {
+export function toPublicMenuItem(row: MenuItemRow, pricing?: Pricing) {
+  const sale =
+    pricing?.saleFor({
+      id: String(row._id),
+      categoryId: String(row.categoryId),
+    }) ?? null;
   return {
     id: String(row._id),
     slug: row.slug,
@@ -26,11 +32,14 @@ export function toPublicMenuItem(row: MenuItemRow) {
     imageBlur: row.imageBlur,
     category: { slug: row.category.slug, name: row.category.name },
     price: money(row.price),
-    compareAtPrice: money(row.compareAtPrice),
+    salePrice: sale ? money(sale.price(row.price)) : undefined,
+    compareAtPrice: sale ? undefined : money(row.compareAtPrice),
+    sale: sale?.info,
     variants: (row.variants ?? []).map((v: Variant) => ({
       id: String(v._id),
       name: v.name,
       price: money(v.price),
+      salePrice: sale ? money(sale.price(v.price)) : undefined,
       isDefault: v.isDefault,
       isAvailable: v.isAvailable,
     })),
@@ -57,9 +66,9 @@ export function toPublicMenuItem(row: MenuItemRow) {
   };
 }
 
-export function toAdminMenuItem(row: MenuItemRow) {
+export function toAdminMenuItem(row: MenuItemRow, pricing?: Pricing) {
   return {
-    ...toPublicMenuItem(row),
+    ...toPublicMenuItem(row, pricing),
     category: {
       slug: row.category.slug,
       name: row.category.name,

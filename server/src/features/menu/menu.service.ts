@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import {
   Error as MongooseError,
+  isValidObjectId,
   type Model,
   type PipelineStage,
   type Types,
@@ -29,7 +30,14 @@ import {
   type MenuCategoryDocument,
 } from 'src/schemas/category.schema';
 import { MenuItem, type MenuItemDocument } from 'src/schemas/item.schema';
-import type { CreateMenuItemDto } from './dto/create-menu-item.dto';
+import {
+  PromotionsService,
+  type Pricing,
+} from 'src/features/promotions/promotions.service';
+import type {
+  CreateMenuItemDto,
+  UpdateMenuItemDto,
+} from './dto/create-menu-item.dto';
 import type {
   AdminListMenuItemsQuery,
   ListMenuItemsQuery,
@@ -102,6 +110,7 @@ export class MenuService {
     @InjectModel(MenuCategory.name)
     private readonly categoryModel: Model<MenuCategoryDocument>,
     private readonly media: MediaService,
+    private readonly promotions: PromotionsService,
   ) {}
 
   async createItem(dto: CreateMenuItemDto): Promise<AdminMenuItem> {
@@ -117,40 +126,10 @@ export class MenuService {
       ? await this.checkSlugIsFree(dto.slug)
       : await this.freeSlugFrom(dto.name);
 
-    const variants = dto.variants.map((v) => ({
-      ...v,
-      price: toMinor(v.price),
-    }));
-
-    if (variants.length > 0 && !variants.some((v) => v.isDefault))
-      variants[0].isDefault = true;
-
     const doc = new this.itemModel({
-      name: dto.name,
+      ...itemFields(dto),
       slug,
-      description: dto.description ?? '',
       categoryId: category._id,
-      price: dto.price === undefined ? undefined : toMinor(dto.price),
-      compareAtPrice:
-        dto.compareAtPrice === undefined
-          ? undefined
-          : toMinor(dto.compareAtPrice),
-      variants,
-      modifierGroups: dto.modifierGroups.map((group) => ({
-        ...group,
-        options: group.options.map((option) => ({
-          ...option,
-          priceDelta: toMinor(option.priceDelta ?? 0),
-        })),
-      })),
-      dietaryTags: dto.dietaryTags,
-      allergens: dto.allergens,
-      spiceLevel: dto.spiceLevel,
-      badges: dto.badges,
-      calories: dto.calories,
-      prepTimeMinutes: dto.prepTimeMinutes,
-      isActive: dto.isActive,
-      isAvailable: dto.isAvailable,
       sortOrder: dto.sortOrder ?? (await this.nextSortOrder(category._id)),
     });
 
@@ -187,7 +166,113 @@ export class MenuService {
         isActive: category.isActive,
       },
     };
-    return toAdminMenuItem(row);
+    return toAdminMenuItem(row, await this.promotions.pricing());
+  }
+
+  async updateItem(id: string, dto: UpdateMenuItemDto): Promise<AdminMenuItem> {
+    if (!isValidObjectId(id))
+      throw new NotFoundException('This dish no longer exists');
+    const doc = await this.itemModel.findById(id);
+    if (!doc) throw new NotFoundException('This dish no longer exists');
+
+    if (
+      dto.version &&
+      doc.updatedAt &&
+      new Date(dto.version).getTime() !== doc.updatedAt.getTime()
+    ) {
+      throw new ConflictException({
+        statusCode: 409,
+        message:
+          'Someone else saved this dish while you were editing. Reload the page to see their changes.',
+      });
+    }
+
+    const category = await this.categoryModel
+      .findById(dto.categoryId, { name: 1, slug: 1, sortOrder: 1, isActive: 1 })
+      .lean();
+    if (!category)
+      throw formError({
+        categoryId: 'This category no longer exists. Pick another one.',
+      });
+
+    const slug =
+      dto.slug && dto.slug !== doc.slug
+        ? await this.checkSlugIsFree(dto.slug)
+        : doc.slug;
+    const movedCategory = !doc.categoryId.equals(category._id);
+
+    doc.set({
+      ...itemFields(dto),
+      slug,
+      categoryId: category._id,
+      sortOrder:
+        dto.sortOrder ??
+        (movedCategory
+          ? await this.nextSortOrder(category._id)
+          : doc.sortOrder),
+    });
+
+    try {
+      await doc.validate();
+    } catch (error) {
+      throw toFormError(error);
+    }
+
+    const oldImage = doc.image;
+    let photo: StoredImage | undefined;
+    if (dto.image) {
+      photo = await this.media.keepMenuImage(dto.image);
+      doc.image = photo.key;
+      doc.imageBlur = photo.blurDataURL;
+    } else if (dto.removeImage) {
+      doc.image = undefined;
+      doc.imageBlur = undefined;
+    }
+
+    try {
+      await doc.save();
+    } catch (error) {
+      await this.media.deleteQuietly(photo?.key);
+      if (isDuplicateKey(error)) throw slugTaken(slug);
+      throw toFormError(error);
+    }
+
+    if (dto.image) void this.media.deleteQuietly(dto.image);
+
+    if (oldImage && oldImage !== doc.image && oldImage.startsWith('menu/')) {
+      void this.media.deleteQuietly(oldImage);
+    }
+
+    const row: MenuItemRow = {
+      ...doc.toObject(),
+      category: {
+        _id: category._id,
+        name: category.name,
+        slug: category.slug,
+        sortOrder: category.sortOrder,
+        isActive: category.isActive,
+      },
+    };
+    return toAdminMenuItem(row, await this.promotions.pricing());
+  }
+
+  async deleteItems(
+    ids: string[],
+  ): Promise<{ deleted: number; photosDeleted: number }> {
+    const dishes = await this.itemModel
+      .find({ _id: { $in: ids } }, { image: 1 })
+      .lean();
+    if (dishes.length === 0)
+      throw new NotFoundException('These dishes no longer exist');
+
+    const { deletedCount } = await this.itemModel.deleteMany({
+      _id: { $in: dishes.map((d) => d._id) },
+    });
+    const photosDeleted = await this.media.deleteManyQuietly(
+      dishes.map((d) => d.image),
+    );
+
+    return { deleted: deletedCount, photosDeleted };
   }
 
   private async freeSlugFrom(name: string): Promise<string> {
@@ -241,7 +326,7 @@ export class MenuService {
         : undefined;
 
     return {
-      ...toAdminMenuItem(row),
+      ...toAdminMenuItem(row, await this.promotions.pricing()),
       neighbors: {
         position: index + 1,
         total: siblings.length,
@@ -251,10 +336,12 @@ export class MenuService {
     };
   }
 
-  listPublicItems(
+  async listPublicItems(
     query: ListMenuItemsQuery,
-  ): Promise<Paginated<PublicMenuItem>> {
-    return this.list(query, 'public', toPublicMenuItem);
+  ): Promise<Paginated<PublicMenuItem> & { nextPriceChangeIn: number | null }> {
+    const pricing = await this.promotions.pricing();
+    const page = await this.list(query, 'public', toPublicMenuItem, pricing);
+    return { ...page, nextPriceChangeIn: pricing.secondsUntilNextChange };
   }
 
   listAdminItems(
@@ -342,7 +429,8 @@ export class MenuService {
   private async list<T>(
     query: AdminListMenuItemsQuery,
     scope: Scope,
-    map: (row: MenuItemRow) => T,
+    map: (row: MenuItemRow, pricing: Pricing) => T,
+    pricing?: Pricing,
   ): Promise<Paginated<T>> {
     const { page, limit } = query;
     const terms = searchTerms(query.search);
@@ -413,8 +501,9 @@ export class MenuService {
     }>(pipeline);
     const total = result?.total[0]?.count ?? 0;
 
+    const prices = pricing ?? (await this.promotions.pricing());
     return {
-      items: (result?.items ?? []).map(map),
+      items: (result?.items ?? []).map((row) => map(row, prices)),
       meta: paginationMeta(page, limit, total),
     };
   }
@@ -448,3 +537,43 @@ const isDuplicateKey = (error: unknown) =>
   typeof error === 'object' &&
   error !== null &&
   (error as { code?: number }).code === 11000;
+
+function itemFields(dto: CreateMenuItemDto) {
+  const keepId = <T extends { id?: string }>({ id, ...rest }: T) => ({
+    ...rest,
+    ...(id && { _id: id }),
+  });
+
+  const variants = dto.variants.map((v) => ({
+    ...keepId(v),
+    price: toMinor(v.price),
+  }));
+  if (variants.length > 0 && !variants.some((v) => v.isDefault))
+    variants[0].isDefault = true;
+
+  return {
+    name: dto.name,
+    description: dto.description ?? '',
+    price: dto.price === undefined ? undefined : toMinor(dto.price),
+    compareAtPrice:
+      dto.compareAtPrice === undefined
+        ? undefined
+        : toMinor(dto.compareAtPrice),
+    variants,
+    modifierGroups: dto.modifierGroups.map(({ options, ...group }) => ({
+      ...keepId(group),
+      options: options.map((option) => ({
+        ...keepId(option),
+        priceDelta: toMinor(option.priceDelta ?? 0),
+      })),
+    })),
+    dietaryTags: dto.dietaryTags,
+    allergens: dto.allergens,
+    spiceLevel: dto.spiceLevel,
+    badges: dto.badges,
+    calories: dto.calories,
+    prepTimeMinutes: dto.prepTimeMinutes,
+    isActive: dto.isActive,
+    isAvailable: dto.isAvailable,
+  };
+}

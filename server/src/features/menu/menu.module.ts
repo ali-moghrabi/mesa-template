@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MenuCategory, MenuCategorySchema } from 'src/schemas/category.schema';
 import { MenuItem, MenuItemSchema } from 'src/schemas/item.schema';
 import { MediaModule } from 'src/features/media/media.module';
+import { PromotionsModule } from 'src/features/promotions/promotions.module';
 import { AdminMenuController, MenuController } from './menu.controller';
 import { MenuCategoriesService } from './categories.service';
 import { MenuService } from './menu.service';
@@ -14,6 +15,7 @@ import { MenuService } from './menu.service';
       { name: MenuItem.name, schema: MenuItemSchema },
     ]),
     MediaModule,
+    PromotionsModule,
   ],
   controllers: [MenuController, AdminMenuController],
   providers: [MenuService, MenuCategoriesService],

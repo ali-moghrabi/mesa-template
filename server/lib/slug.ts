@@ -2,6 +2,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'new',
   'edit',
   'categories',
+  'promotions',
 ]);
 
 export function slugify(input: string, maxLength = 80): string {
