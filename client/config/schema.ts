@@ -13,7 +13,7 @@ export const SECTION_VARIANTS = {
   pageHeader: ["image", "simple"],
   team: ["grid", "carousel"],
   faq: ["accordion", "columns"],
-  gallery: ["masonry", "grid", "slider"],
+  gallery: ["masonry", "grid"],
   events: ["cards", "list"],
   contact: ["split", "simple"],
 } as const;
@@ -27,9 +27,7 @@ const SECTION_TYPES = Object.keys(SECTION_VARIANTS) as [
 const SECTION_SOURCE: Partial<Record<SectionType, string>> = {
   about: "about",
   stats: "stats",
-  gallery: "gallery",
   faq: "faqs",
-  events: "events",
 };
 
 const DAYS = [
@@ -519,6 +517,81 @@ const features = obj({
   instagramFeed: flag,
 });
 
+/* ───────────── ordering (checkout) ───────────── */
+
+/** Ways to pay at checkout. A new gateway later = a new id here (and its code). */
+export const PAYMENT_METHODS = ["cod", "stripe"] as const;
+
+/** Prices are in the primary currency, normal units (3 = $3.00) */
+const amount = z.number().min(0).max(100_000);
+
+/** [earliest, latest] minutes, e.g. [35, 50] */
+const etaRange = z
+  .tuple([z.number().int().min(0).max(600), z.number().int().min(0).max(600)])
+  .refine(
+    ([a, b]) => a <= b,
+    "The first number must be the smaller one, e.g. [35, 50]",
+  );
+
+const deliveryArea = obj({
+  id: z
+    .string()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use kebab-case, e.g. hamra"),
+  name: text,
+  /** Replaces delivery.fee for this area */
+  fee: amount.optional(),
+  /** Replaces delivery.minimumOrder for this area */
+  minimumOrder: amount.optional(),
+});
+
+const ordering = obj({
+  payments: obj({
+    methods: z
+      .array(z.enum(PAYMENT_METHODS))
+      .min(1, 'Add at least one payment method: "cod" or "stripe"')
+      .refine(
+        (m) => new Set(m).size === m.length,
+        "Each payment method only once",
+      ),
+  }),
+  delivery: obj({
+    fee: amount,
+    /** Free delivery from this subtotal; leave it out for never */
+    freeOver: amount.positive().optional(),
+    minimumOrder: amount.default(0),
+    etaMinutes: etaRange,
+    /** Empty = deliver anywhere at the same fee */
+    areas: z
+      .array(deliveryArea)
+      .default([])
+      .superRefine(uniqueIds("delivery area")),
+  }).optional(),
+  pickup: obj({
+    etaMinutes: etaRange,
+    /** Defaults to business.address */
+    address: text.optional(),
+    instructions: text.optional(),
+  }).optional(),
+  scheduling: obj({
+    enabled: z.boolean(),
+    daysAhead: z.number().int().min(0).max(14),
+    slotMinutes: z.union([
+      z.literal(5),
+      z.literal(10),
+      z.literal(15),
+      z.literal(20),
+      z.literal(30),
+      z.literal(60),
+    ]),
+  }).default({ enabled: true, daysAhead: 2, slotMinutes: 15 }),
+  /** Tip choices in % of the subtotal; [] = no tips */
+  tips: z
+    .array(z.number().int().min(1).max(50))
+    .max(5, "Up to 5 tip choices")
+    .refine((t) => new Set(t).size === t.length, "Each tip only once")
+    .default([]),
+});
+
 const seo = obj({
   defaultDescription: text.max(200),
   siteUrl: z
@@ -601,6 +674,7 @@ export const configSchema = obj({
   seo,
   locale,
   integrations,
+  ordering: ordering.optional(),
   legal: legal.optional(),
 }).superRefine((cfg, ctx) => {
   const add = (path: (string | number)[], message: string) =>
@@ -713,6 +787,38 @@ export const configSchema = obj({
       ["features", "whatsappButton"],
       "whatsappButton needs business.whatsapp",
     );
+
+  if (cfg.features.onlineOrdering) {
+    if (!cfg.features.delivery && !cfg.features.pickup)
+      add(
+        ["features", "onlineOrdering"],
+        "Online ordering needs features.delivery or features.pickup",
+      );
+    if (!cfg.ordering)
+      add(
+        ["ordering"],
+        "Online ordering needs an ordering section (payments, delivery, pickup…)",
+      );
+    else {
+      if (cfg.features.delivery && !cfg.ordering.delivery)
+        add(
+          ["ordering", "delivery"],
+          "features.delivery is on: add ordering.delivery (fee, etaMinutes…)",
+        );
+      if (cfg.features.pickup && !cfg.ordering.pickup)
+        add(
+          ["ordering", "pickup"],
+          "features.pickup is on: add ordering.pickup (etaMinutes)",
+        );
+    }
+  }
+  const d = cfg.ordering?.delivery;
+  if (d?.freeOver !== undefined && d.freeOver < d.minimumOrder)
+    add(
+      ["ordering", "delivery", "freeOver"],
+      "freeOver is below minimumOrder, so delivery would always be free",
+    );
+
   if (cfg.business.socials.length === 0)
     add(
       ["layout", "footer", "showSocials"],
@@ -724,3 +830,5 @@ export type SiteConfig = z.infer<typeof configSchema>;
 export type Page = z.infer<typeof page>;
 export type Section = z.infer<typeof section>;
 export type ColorSet = z.infer<typeof colorSet>;
+export type OrderingConfig = z.infer<typeof ordering>;
+export type PaymentMethodId = (typeof PAYMENT_METHODS)[number];

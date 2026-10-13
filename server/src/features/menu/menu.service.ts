@@ -12,6 +12,7 @@ import {
   type PipelineStage,
   type Types,
 } from 'mongoose';
+import { mediaUrl } from 'lib/media-url';
 import { toMinor } from 'lib/money';
 import {
   escapeRegex,
@@ -100,6 +101,20 @@ export type MenuSummary = {
     isActive: boolean;
     itemCount: number;
   }[];
+};
+
+export type PublicMenu = {
+  categories: {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    image?: string;
+    imageBlur?: string;
+    servingHours: { days: string[]; from: string; to: string }[];
+    items: PublicMenuItem[];
+  }[];
+  nextPriceChangeIn: number | null;
 };
 
 @Injectable()
@@ -238,7 +253,6 @@ export class MenuService {
     }
 
     if (dto.image) void this.media.deleteQuietly(dto.image);
-
     if (oldImage && oldImage !== doc.image && oldImage.startsWith('menu/')) {
       void this.media.deleteQuietly(oldImage);
     }
@@ -348,6 +362,62 @@ export class MenuService {
     query: AdminListMenuItemsQuery,
   ): Promise<Paginated<AdminMenuItem>> {
     return this.list(query, 'admin', toAdminMenuItem);
+  }
+
+  async publicMenu(): Promise<PublicMenu> {
+    const [categories, rows, pricing] = await Promise.all([
+      this.categoryModel
+        .find(
+          { isActive: true },
+          {
+            name: 1,
+            slug: 1,
+            description: 1,
+            image: 1,
+            imageBlur: 1,
+            servingHours: 1,
+            sortOrder: 1,
+          },
+        )
+        .sort({ sortOrder: 1, name: 1, _id: 1 })
+        .lean(),
+      this.itemModel.aggregate<MenuItemRow>([
+        { $match: { isActive: true } },
+        this.joinCategory(),
+        { $unwind: '$category' },
+        { $match: { 'category.isActive': true } },
+        { $sort: { sortOrder: 1, name: 1, _id: 1 } },
+      ]),
+      this.promotions.pricing(),
+    ]);
+
+    const byCategory = new Map<string, PublicMenuItem[]>();
+    for (const row of rows) {
+      const key = String(row.categoryId);
+      const list = byCategory.get(key) ?? [];
+      list.push(toPublicMenuItem(row, pricing));
+      byCategory.set(key, list);
+    }
+
+    return {
+      categories: categories
+        .map((c) => ({
+          id: String(c._id),
+          slug: c.slug,
+          name: c.name,
+          description: c.description ?? '',
+          image: mediaUrl(c.image),
+          imageBlur: c.imageBlur,
+          servingHours: (c.servingHours ?? []).map((w) => ({
+            days: w.days ?? [],
+            from: w.from,
+            to: w.to,
+          })),
+          items: byCategory.get(String(c._id)) ?? [],
+        }))
+        .filter((c) => c.items.length > 0),
+      nextPriceChangeIn: pricing.secondsUntilNextChange,
+    };
   }
 
   async summary(): Promise<MenuSummary> {

@@ -6,6 +6,7 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class LoginUserDto {
   @IsString()
@@ -63,4 +64,33 @@ export class RegisterUserDto {
     message: 'Password must contain at least one special character',
   })
   readonly password!: string;
+}
+
+export class GoogleLoginDto {
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2048)
+  code!: string;
+}
+
+export class ForgotPasswordDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsEmail({}, { message: 'Enter a valid email address' })
+  @MaxLength(254)
+  email!: string;
+}
+
+export class CheckResetTokenDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{40,64}$/, { message: 'Invalid link' })
+  token!: string;
+}
+
+export class ResetPasswordDto extends CheckResetTokenDto {
+  @IsString()
+  @MinLength(8, { message: 'Use at least 8 characters' })
+  @MaxLength(128)
+  password!: string;
 }

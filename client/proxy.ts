@@ -20,6 +20,7 @@ import {
 import {
   ADMIN_ROUTE,
   FALLBACK_ROUTE,
+  GUEST_ONLY_ROUTES,
   PROTECTED_ROUTES,
   isMatch,
 } from "@/lib/auth/routes";
@@ -35,8 +36,9 @@ export async function proxy(request: NextRequest) {
   const deniedAdmin =
     isMatch(pathname, [ADMIN_ROUTE]) && !canAccessAdmin(user?.role);
   const deniedPage = user === null && isMatch(pathname, PROTECTED_ROUTES);
+  const guestsOnly = user !== null && isMatch(pathname, GUEST_ONLY_ROUTES);
 
-  if (deniedAdmin || deniedPage) {
+  if (deniedAdmin || deniedPage || guestsOnly) {
     return jar.applyTo(
       NextResponse.redirect(new URL(FALLBACK_ROUTE, request.url)),
     );

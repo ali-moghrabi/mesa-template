@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Link from "next/link";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -10,6 +11,7 @@ import { toast } from "../ui/toast";
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { useSessionRefresh } from "@/hooks/use-session-refresh";
 import { loginUser } from "../../lib/actions/auth.actions";
+import { GoogleButton, OrDivider } from "./GoogleButton";
 
 const SignInForm: React.FC<{
   setSignInDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -28,23 +30,25 @@ const SignInForm: React.FC<{
     },
   });
 
+  const signedIn = () => {
+    toast.add({
+      title: "Signed in successfully! Welcome Back.",
+      type: "success",
+    });
+
+    void syncSession({
+      then: () => {
+        setSignInDialogOpen(false);
+        setSignUpDialogOpen(false);
+        form.reset();
+      },
+    });
+  };
+
   const { mutate: loginMutation, isPending } = useMutation({
     mutationFn: (data: LoginUserForm) => loginUser(data),
     onMutate: () => setErrorMessage(null),
-    onSuccess: () => {
-      toast.add({
-        title: "Signed in successfully! Welcome Back.",
-        type: "success",
-      });
-
-      void syncSession({
-        then: () => {
-          setSignInDialogOpen(false);
-          setSignUpDialogOpen(false);
-          form.reset();
-        },
-      });
-    },
+    onSuccess: signedIn,
     onError: (error) => {
       setErrorMessage(String(error?.message || "Something went wrong!"));
       form.resetField("password");
@@ -55,6 +59,13 @@ const SignInForm: React.FC<{
 
   return (
     <div className="px-6 pb-7">
+      <GoogleButton
+        onSignedIn={signedIn}
+        onError={setErrorMessage}
+        disabled={busy}
+      />
+      <OrDivider label="or with email" className="my-5" />
+
       <form
         onSubmit={form.handleSubmit((data) => loginMutation(data))}
         method="POST"
@@ -89,12 +100,13 @@ const SignInForm: React.FC<{
               <Field data-invalid={fieldState.invalid} className="gap-1">
                 <div className="flex items-center justify-between gap-4">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <button
-                    type="button"
+                  <Link
+                    href="/forgot-password"
+                    onClick={() => setSignInDialogOpen(false)}
                     className="text-xs font-medium text-primary transition-colors hover:text-primary/80 cursor-pointer"
                   >
                     Forgot password?
-                  </button>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Input

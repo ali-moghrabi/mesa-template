@@ -1,8 +1,8 @@
-import React from "react";
 import Link from "next/link";
 import { MapPin, Phone } from "lucide-react";
 import type { SiteConfig } from "@/config/schema";
 import { OpenStatus } from "@/components/common/OpenStatus";
+import { getOpeningHours } from "@/lib/opening-hours-server";
 import { cn } from "@/lib/utils";
 import { BookingBar } from "./BookingBar";
 import type { HeroProps } from "./schema";
@@ -20,12 +20,13 @@ export type HeroLayoutProps = {
 const BUTTON =
   "inline-flex min-h-[54px] items-center justify-center rounded-[calc(var(--radius)*1.1)] px-7 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
-const HeroLayout: React.FC<HeroLayoutProps> = ({
+async function HeroLayout({
   props,
   variant,
   business,
   reservationsEnabled,
-}) => {
+}: HeroLayoutProps) {
+  const hours = await getOpeningHours();
   const { primaryCta, secondaryCta } = props;
   const showBooking =
     props.booking && reservationsEnabled && Boolean(primaryCta);
@@ -36,6 +37,7 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
 
   return (
     <section
+      data-nav-dark=""
       aria-labelledby="hero-title"
       className="relative isolate flex min-h-svh flex-col justify-end overflow-hidden bg-[#1b120c] text-white [--pad:clamp(1.1rem,4vw,3.5rem)]"
     >
@@ -107,13 +109,7 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
           </div>
 
           <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-white/85">
-            {business.hours && (
-              <OpenStatus
-                hours={business.hours}
-                specialHours={business.specialHours}
-                timezone={business.timezone}
-              />
-            )}
+            {hours && <OpenStatus hours={hours} />}
             <span className="inline-flex items-center gap-1.5">
               <MapPin aria-hidden="true" className="size-4" />
               {business.address.street}, {business.address.city}
@@ -130,6 +126,6 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
       </div>
     </section>
   );
-};
+}
 
 export default HeroLayout;

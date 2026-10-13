@@ -30,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <head>
-        <style dangerouslySetInnerHTML={{ __html: generateThemeCss(theme) }} />
+        <style href="mesa-theme" precedence="default">
+          {generateThemeCss(theme)}
+        </style>
       </head>
       <body>
         <ThemeProvider

@@ -190,7 +190,7 @@
           "props": {
             "title": "Our Menu",
             "subtitle": "Made fresh daily from local ingredients.",
-            "image": "images/menu-header.jpg"
+            "image": "assets/menu/menu-header.jpg"
           }
         },
         {
@@ -275,7 +275,7 @@
           "type": "gallery",
           "variant": "masonry",
           "enabled": true,
-          "props": { "source": "content.gallery", "lightbox": true }
+          "props": { "lightbox": true, "showFilters": true }
         }
       ]
     },
@@ -422,45 +422,6 @@
       { "value": "2", "label": "Industry awards" }
     ],
 
-    "gallery": [
-      {
-        "id": "g1",
-        "image": "images/gallery/1.jpg",
-        "alt": "Dining room at sunset",
-        "category": "Interior"
-      },
-      {
-        "id": "g2",
-        "image": "images/gallery/2.jpg",
-        "alt": "Wood-fired oven in action",
-        "category": "Kitchen"
-      },
-      {
-        "id": "g3",
-        "image": "images/gallery/3.jpg",
-        "alt": "Burrata with heirloom tomatoes",
-        "category": "Dishes"
-      },
-      {
-        "id": "g4",
-        "image": "images/gallery/4.jpg",
-        "alt": "Slow-roasted lamb shoulder",
-        "category": "Dishes"
-      },
-      {
-        "id": "g5",
-        "image": "images/gallery/5.jpg",
-        "alt": "Terrace seating",
-        "category": "Interior"
-      },
-      {
-        "id": "g6",
-        "image": "images/gallery/6.jpg",
-        "alt": "Basque cheesecake",
-        "category": "Dishes"
-      }
-    ],
-
     "faqs": [
       {
         "question": "Do I need a reservation?",
@@ -477,27 +438,6 @@
       {
         "question": "Is the restaurant wheelchair accessible?",
         "answer": "Yes, the dining room, terrace and restrooms are fully step-free."
-      }
-    ],
-
-    "events": [
-      {
-        "id": "e1",
-        "title": "Jazz Fridays",
-        "date": "Every Friday",
-        "time": "20:00",
-        "description": "Live jazz trio with a special three-course menu.",
-        "image": "images/events/jazz.jpg",
-        "cta": { "label": "Reserve", "href": "/reservations" }
-      },
-      {
-        "id": "e2",
-        "title": "Winemaker's Dinner",
-        "date": "2026-11-14",
-        "time": "19:30",
-        "description": "Five courses paired with wines from a small Lebanese estate.",
-        "image": "images/events/wine.jpg",
-        "cta": { "label": "Reserve", "href": "/reservations" }
       }
     ]
   },
@@ -587,7 +527,7 @@
     "reservations": true,
     "onlineOrdering": true,
     "delivery": true,
-    "pickup": false,
+    "pickup": true,
     "newsletter": true,
     "contactForm": true,
     "blog": false,
@@ -597,6 +537,22 @@
     "instagramFeed": false,
     "cookieBanner": true,
     "darkModeToggle": true
+  },
+
+  "ordering": {
+    "payments": {
+      "methods": ["cod", "stripe"]
+    },
+    "delivery": {
+      "fee": 3,
+      "freeOver": 40,
+      "minimumOrder": 10,
+      "etaMinutes": [35, 50],
+      "areas": []
+    },
+    "pickup": { "etaMinutes": [15, 25] },
+    "scheduling": { "enabled": true, "daysAhead": 2, "slotMinutes": 15 },
+    "tips": [5, 10, 15]
   },
 
   "seo": {

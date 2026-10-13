@@ -53,6 +53,34 @@ export async function loginUser(data: LoginUserForm) {
   }
 }
 
+export async function loginWithGoogle(code: string) {
+  try {
+    const response = await ServerEndpoint.post(
+      "/auth/google",
+      { code },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      },
+    );
+
+    if (response.status !== 201) {
+      throw new Error(response.data.message || "Something went wrong");
+    }
+  } catch (error) {
+    console.error(error);
+    if (axios.isAxiosError(error)) {
+      throw new Error(
+        error.response?.data.message ||
+          "Google sign-in failed. Please try again.",
+      );
+    }
+    throw new Error("Google sign-in failed. Please try again.");
+  }
+}
+
 export async function logoutUser() {
   try {
     const response = await ServerEndpoint.post("/auth/logout");

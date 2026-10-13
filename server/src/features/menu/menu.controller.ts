@@ -41,6 +41,15 @@ class SlugPipe implements PipeTransform<string, string> {
 export class MenuController {
   constructor(private readonly menu: MenuService) {}
 
+  /**
+   * GET /api/v1/menu → { categories: [{ …category, items: [...] }], nextPriceChangeIn }
+   * The whole menu for the website's menu page, in one request, with sale prices.
+   */
+  @Get()
+  fullMenu() {
+    return this.menu.publicMenu();
+  }
+
   /** GET /api/v1/menu/items?page=1&limit=10 */
   @Get('items')
   listItems(@Query() query: ListMenuItemsQuery) {

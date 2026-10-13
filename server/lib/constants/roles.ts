@@ -2,13 +2,14 @@ export const ROLES = ['customer', 'staff', 'manager', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
-  'menu:availability', //   mark dishes sold out / back in stock during service
-  'menu:manage', //         create, edit, delete dishes and categories
-  'reservations:manage', // see, confirm, cancel bookings
-  'orders:manage', //       see and update online orders
-  'content:manage', //      events, gallery, testimonials, page texts
-  'users:manage', //        list users, change roles, disable accounts
-  'settings:manage', //     restaurant settings (hours, currency rate, features)
+  'menu:availability',
+  'menu:manage',
+  'reservations:manage',
+  'orders:manage',
+  'orders:edit',
+  'content:manage',
+  'users:manage',
+  'settings:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

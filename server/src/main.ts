@@ -8,7 +8,7 @@ import cookieParser from 'cookie-parser';
 import type { Env } from './config/env.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   const allowedOrigins = [config.get('CLIENT_ORIGIN', { infer: true })];
 
@@ -26,7 +26,7 @@ async function bootstrap() {
       }
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
     optionsSuccessStatus: 204,
   };

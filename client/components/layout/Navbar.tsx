@@ -3,7 +3,7 @@ import { NavbarClient } from "./layout_components/NavbarClient";
 import { getUserSession } from "@/lib/auth/get-user";
 
 export async function Navbar() {
-  const { brand, layout, business, features } = getConfig();
+  const { brand, layout, business, features, menu } = getConfig();
   const { navbar, announcementBar: bar } = layout;
 
   const user = await getUserSession();
@@ -30,6 +30,8 @@ export async function Navbar() {
         address: `${business.address.street}, ${business.address.city}`,
         phone: business.phone,
       }}
+      currency={menu.currency}
+      pricingNote={menu.pricing?.note}
     />
   );
 }

@@ -7,6 +7,9 @@ import { getOpeningHours } from "@/lib/opening-hours-server";
 import { requireTeam } from "@/lib/auth/get-user";
 import { AdminShell } from "@/admin/components/layout/AdminShell";
 import { buildAdminNav, SIDEBAR_COOKIE } from "@/admin/lib/nav";
+import { hasPermission } from "@/lib/auth/user-roles";
+import { OrderAlerts } from "@/admin/components/orders/OrderAlerts";
+import QueryWrapper from "@/components/providers/query-wrapper";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -36,16 +39,20 @@ export default async function AdminLayout({
       storageKey="mesa-admin-theme"
       disableTransitionOnChange
     >
-      <AdminShell
-        brandName={config.brand.name}
-        user={user}
-        groups={groups}
-        business={{ hours: await getOpeningHours() }}
-        initialCollapsed={collapsed}
-        counts={{}}
-      >
-        {children}
-      </AdminShell>
+      <QueryWrapper>
+        <AdminShell
+          brandName={config.brand.name}
+          user={user}
+          groups={groups}
+          business={{ hours: await getOpeningHours() }}
+          initialCollapsed={collapsed}
+          counts={{}}
+        >
+          {children}
+          {config.features?.onlineOrdering &&
+            hasPermission(user.role, "orders:manage") && <OrderAlerts />}
+        </AdminShell>
+      </QueryWrapper>
     </ThemeProvider>
   );
 }

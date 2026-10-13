@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  getOpenStatus,
-  type OpenStatus as Status,
-  type OpeningHours,
-} from "@/lib/opening-hours";
+import { useSyncExternalStore } from "react";
+import { getOpenStatus, type OpeningHours } from "@/lib/opening-hours";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -13,15 +9,17 @@ type Props = {
   className?: string;
 };
 
-export function OpenStatus({ hours, className }: Props) {
-  const [status, setStatus] = useState<Status | null>(null);
+const subscribe = (onChange: () => void) => {
+  const id = setInterval(onChange, 30_000);
+  return () => clearInterval(id);
+};
+const currentMinute = () => Math.floor(Date.now() / 60_000);
+const noClock = () => null;
 
-  useEffect(() => {
-    const tick = () => setStatus(getOpenStatus(hours));
-    tick();
-    const id = setInterval(tick, 60_000);
-    return () => clearInterval(id);
-  }, [hours]);
+export function OpenStatus({ hours, className }: Props) {
+  const minute = useSyncExternalStore(subscribe, currentMinute, noClock);
+  const status =
+    minute === null ? null : getOpenStatus(hours, new Date(minute * 60_000));
 
   const tone =
     status === null
@@ -37,7 +35,7 @@ export function OpenStatus({ hours, className }: Props) {
     >
       <i aria-hidden="true" className={cn("size-2 rounded-full", tone)} />
       <span>
-        {status?.label ?? " "}
+        {status?.label ?? " "}
         {status?.special && (
           <span className="font-normal opacity-80"> · {status.special}</span>
         )}

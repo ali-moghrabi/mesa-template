@@ -1,4 +1,9 @@
-export const PROTECTED_ROUTES: readonly string[] = ["/account"];
+export const PROTECTED_ROUTES: readonly string[] = ["/account", "/payment"];
+
+export const GUEST_ONLY_ROUTES: readonly string[] = [
+  "/forgot-password",
+  "/reset-password",
+];
 
 export const ADMIN_ROUTE = "/admin";
 

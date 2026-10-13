@@ -16,7 +16,8 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import type { Env } from 'src/config/env';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import { hashToken, isGraceReplay } from './refresh-policy';
 import { Session, SessionDocument } from 'src/schemas/session.schema';
 import {
@@ -43,6 +44,15 @@ interface RefreshPayload {
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
+/** "sara.haddad+food@gmail.com" → "sarahaddad": a starting point for a Google user's username */
+const usernameBase = (email: string) =>
+  email
+    .split('@')[0]
+    .toLowerCase()
+    .replace(/\+.*$/, '')
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 20) || 'guest';
+
 const isDuplicateKeyError = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
@@ -53,6 +63,7 @@ const isDuplicateKeyError = (error: unknown): boolean =>
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly dummyHash = bcrypt.hashSync(randomUUID(), 12);
+  private googleClient?: OAuth2Client;
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -134,6 +145,192 @@ export class AuthService {
         'Failed to login user due to a server error',
       );
     }
+  }
+
+  /**
+   * Sign in with Google (the website's popup sends a one-time code).
+   *   1. The code is swapped with Google for an ID token (client secret, server only) and the
+   *      token is verified: signed by Google, issued for this app, not expired.
+   *   2. The account: already linked to this Google account, else the same verified email
+   *      (linked now), else a new customer account.
+   *   3. The same session and cookies as a password sign-in.
+   */
+  async loginWithGoogle(
+    code: string,
+    meta: RequestMeta,
+  ): Promise<Required<AuthTokens>> {
+    const profile = await this.googleProfile(code);
+    const email = normalizeEmail(profile.email ?? '');
+    // Linking by email is only safe when Google vouches for the address
+    if (!email || profile.email_verified !== true) {
+      throw new UnauthorizedException(
+        'Your Google account has no verified email address',
+      );
+    }
+
+    try {
+      const user = await this.findOrCreateGoogleUser(
+        profile.sub,
+        email,
+        profile,
+      );
+
+      if (!user.isActive) throw new ForbiddenException('Account is disabled');
+
+      await this.userModel.updateOne(
+        { _id: user._id },
+        { $set: { lastLoginAt: new Date() } },
+      );
+      return this.createSession(user, meta);
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(error);
+      throw new InternalServerErrorException(
+        'Failed to sign in with Google due to a server error',
+      );
+    }
+  }
+
+  /** Linked account → same email (linked now) → new account. Never returns null. */
+  private async findOrCreateGoogleUser(
+    googleId: string,
+    email: string,
+    profile: TokenPayload,
+  ): Promise<UserDocument> {
+    const linked = await this.userModel
+      .findOne({ googleId })
+      .select('+tokenVersion +googleId');
+    if (linked) return linked;
+
+    const existing = await this.userModel
+      .findOne({ email })
+      .select('+tokenVersion +googleId');
+    if (!existing) return this.createGoogleUser(profile, email);
+
+    if (existing.googleId && existing.googleId !== googleId) {
+      throw new ConflictException(
+        'This email is already linked to another Google account',
+      );
+    }
+
+    await this.userModel.updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          googleId,
+          isEmailVerified: true,
+          ...(!existing.emailVerifiedAt && { emailVerifiedAt: new Date() }),
+        },
+      },
+    );
+    this.logger.log(
+      `Google linked to existing account ${String(existing._id)}`,
+    );
+    return existing;
+  }
+
+  /** The verified Google profile behind a one-time code */
+  private async googleProfile(code: string): Promise<TokenPayload> {
+    const clientId = this.config.get('GOOGLE_CLIENT_ID', { infer: true });
+    const clientSecret = this.config.get('GOOGLE_CLIENT_SECRET', {
+      infer: true,
+    });
+    if (!clientId || !clientSecret) {
+      this.logger.error(
+        'Google sign-in: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are not set',
+      );
+      throw new InternalServerErrorException(
+        'Google sign-in is not set up yet',
+      );
+    }
+
+    // "postmessage": the redirect URI Google uses for codes from a popup
+    this.googleClient ??= new OAuth2Client({
+      clientId,
+      clientSecret,
+      redirectUri: 'postmessage',
+    });
+
+    let idToken: string | null | undefined;
+    try {
+      const { tokens } = await this.googleClient.getToken(code);
+      idToken = tokens.id_token;
+    } catch (error) {
+      this.logger.warn(
+        `Google sign-in: code exchange failed (${(error as Error).message})`,
+      );
+      throw new UnauthorizedException(
+        'Google sign-in expired. Please try again.',
+      );
+    }
+    if (!idToken)
+      throw new UnauthorizedException(
+        'Google sign-in failed. Please try again.',
+      );
+
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload?.sub) throw new Error('No subject');
+      return payload;
+    } catch {
+      throw new UnauthorizedException(
+        'Google sign-in failed. Please try again.',
+      );
+    }
+  }
+
+  /** A new customer from their Google profile: verified email, a free username, no password yet */
+  private async createGoogleUser(
+    profile: TokenPayload,
+    email: string,
+  ): Promise<UserDocument> {
+    const firstName = (
+      profile.given_name ||
+      profile.name?.split(' ')[0] ||
+      email.split('@')[0]
+    )
+      .trim()
+      .slice(0, 50);
+    const lastName = (
+      profile.family_name ||
+      profile.name?.split(' ').slice(1).join(' ') ||
+      '-'
+    )
+      .trim()
+      .slice(0, 50);
+    const base = usernameBase(email);
+
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const username =
+        attempt === 0 ? base : `${base}${randomInt(1000, 99999)}`;
+      if (await this.userModel.exists({ username })) continue;
+      try {
+        // A new document already has tokenVersion at its default (0)
+        return await this.userModel.create({
+          firstName,
+          lastName,
+          username,
+          email,
+          googleId: profile.sub,
+          isEmailVerified: true,
+          emailVerifiedAt: new Date(),
+        });
+      } catch (error) {
+        // Someone took the username (or this email signed up) a moment ago
+        if (!isDuplicateKeyError(error)) throw error;
+        const existing = await this.userModel
+          .findOne({ email })
+          .select('+tokenVersion +googleId');
+        if (existing) return existing;
+      }
+    }
+    throw new InternalServerErrorException(
+      'Could not create your account. Please try again.',
+    );
   }
 
   async refresh(

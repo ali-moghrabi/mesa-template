@@ -25,8 +25,11 @@ export class User {
   })
   email!: string;
 
-  @Prop({ type: String, required: true, select: false })
-  password!: string;
+  @Prop({ type: String, select: false })
+  password?: string;
+
+  @Prop({ type: String, unique: true, sparse: true, select: false })
+  googleId?: string;
 
   @Prop({ type: String, trim: true, maxlength: 30 })
   phone?: string;

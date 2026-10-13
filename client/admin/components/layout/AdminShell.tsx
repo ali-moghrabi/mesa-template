@@ -36,6 +36,7 @@ import {
   type AdminNavGroup,
 } from "@/admin/lib/nav";
 import { ServiceStatus } from "../shared/ServiceStatus";
+import { useWaitingOrders } from "@/admin/components/orders/OrderAlerts";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
 const ICONS: Record<AdminIcon, LucideIcon> = {
@@ -82,7 +83,6 @@ export function AdminShell({
 }: AdminShellProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
-
   const [openOn, setOpenOn] = useState<string | null>(null);
   const mobileOpen = openOn === pathname;
   const setMobileOpen = useCallback(
@@ -97,6 +97,7 @@ export function AdminShell({
       return next;
     });
   }, []);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
@@ -107,7 +108,7 @@ export function AdminShell({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [setMobileOpen, toggleCollapsed]);
+  }, [toggleCollapsed]);
 
   useEffect(() => {
     document.documentElement.style.overflow = mobileOpen ? "hidden" : "";
@@ -115,6 +116,10 @@ export function AdminShell({
       document.documentElement.style.overflow = "";
     };
   }, [mobileOpen]);
+
+  const waitingOrders = useWaitingOrders();
+  const liveCounts =
+    waitingOrders === null ? counts : { ...counts, orders: waitingOrders };
 
   const content = (compact: boolean, onCollapse?: () => void) => (
     <SidebarContent
@@ -124,7 +129,7 @@ export function AdminShell({
       user={user}
       groups={groups}
       business={business}
-      counts={counts}
+      counts={liveCounts}
       pathname={pathname}
     />
   );
@@ -164,6 +169,7 @@ export function AdminShell({
         <span className="truncate font-semibold">{brandName}</span>
       </header>
 
+      {/* mobile drawer */}
       <div
         aria-hidden="true"
         onClick={() => setMobileOpen(false)}
@@ -364,7 +370,15 @@ function NavLink({
       <span className={cn("truncate", compact && "sr-only")}>{label}</span>
 
       {badge && !compact && (
-        <span className="ml-auto min-w-5 rounded-full bg-primary px-1.5 py-px text-center text-[11px] font-semibold text-primary-foreground tabular-nums">
+        <span
+          className={cn(
+            // Its own colours, never inherited from the link (the active link is text-primary, which hid the number)
+            "ml-auto min-w-5 rounded-full px-1.5 py-px text-center text-[11px] leading-4.5 font-bold tabular-nums",
+            active
+              ? "bg-primary text-white shadow-[0_0_0_2px_var(--color-sidebar,var(--background))]"
+              : "bg-primary text-white",
+          )}
+        >
           {badge}
           <span className="sr-only"> waiting</span>
         </span>

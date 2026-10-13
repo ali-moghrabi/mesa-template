@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -27,6 +28,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { logoutUser } from "@/lib/actions/auth.actions";
+import { fetchActiveOrdersCount } from "@/lib/actions/orders.actions";
+import { ACTIVE_ORDERS_KEY } from "@/lib/checkout";
 import { ADMIN_ROUTE, isMatch, PROTECTED_ROUTES } from "@/lib/auth/routes";
 import { canAccessAdmin } from "@/lib/auth/user-roles";
 import { useSessionRefresh } from "@/hooks/use-session-refresh";
@@ -116,6 +119,34 @@ function AdminPanelLink({
 const ITEM =
   "gap-3 rounded-md px-2.5 py-2 text-sm cursor-pointer [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
+function useActiveOrders(enabled: boolean) {
+  return useQuery({
+    queryKey: ACTIVE_ORDERS_KEY,
+    queryFn: fetchActiveOrdersCount,
+    enabled,
+    staleTime: 15_000,
+    refetchInterval: (query) =>
+      (query.state.data ?? 0) > 0 ? 30_000 : 120_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+function ActiveOrdersBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-primary/12 py-0.5 pr-2 pl-1.5 text-[11px] font-semibold text-primary tabular-nums">
+      <span aria-hidden="true" className="relative flex size-1.5">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+        <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
+      </span>
+      {count}
+      <span className="sr-only">
+        {count === 1 ? "order in progress" : "orders in progress"}
+      </span>
+    </span>
+  );
+}
+
 const UserDropMenu: React.FC<UserDropMenuProps> = ({
   user,
   reservationsEnabled,
@@ -125,6 +156,8 @@ const UserDropMenu: React.FC<UserDropMenuProps> = ({
   const pathname = usePathname();
   const { syncSession } = useSessionRefresh();
   const [signingOut, setSigningOut] = useState(false);
+  const activeOrders = useActiveOrders(orderingEnabled);
+  const inProgress = orderingEnabled ? (activeOrders.data ?? 0) : 0;
 
   const fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
   const isTeam = canAccessAdmin(user.role);
@@ -153,18 +186,30 @@ const UserDropMenu: React.FC<UserDropMenuProps> = ({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open && orderingEnabled) void activeOrders.refetch();
+      }}
+    >
       <DropdownMenuTrigger
-        aria-label={`Account menu for ${fullName}`}
+        aria-label={`Account menu for ${fullName}${inProgress > 0 ? `, ${inProgress} ${inProgress === 1 ? "order" : "orders"} in progress` : ""}`}
         className={cn(
           "group flex cursor-pointer items-center gap-1.5 bg-neutral-50/10 rounded-full p-0.5 pr-2 outline-none transition-colors backdrop-blur-sm",
           "hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-primary/50 data-popup-open:bg-primary/25",
         )}
       >
-        <Avatar
-          user={user}
-          className="size-8 text-[13px] ring-2 ring-primary/70"
-        />
+        <span className="relative">
+          <Avatar
+            user={user}
+            className="size-8 text-[13px] ring-2 ring-primary/70"
+          />
+          {inProgress > 0 && (
+            <span
+              aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
+            />
+          )}
+        </span>
         <ChevronDown
           aria-hidden="true"
           className="size-3.5 opacity-70 transition-transform duration-200 group-data-popup-open:rotate-180"
@@ -232,6 +277,7 @@ const UserDropMenu: React.FC<UserDropMenuProps> = ({
               >
                 <Receipt aria-hidden="true" />
                 My orders
+                <ActiveOrdersBadge count={inProgress} />
               </DropdownMenuItem>
             )}
             <DropdownMenuItem

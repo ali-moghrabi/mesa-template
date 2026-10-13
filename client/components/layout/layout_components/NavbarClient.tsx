@@ -12,6 +12,10 @@ import Image from "next/image";
 import SignUpForm from "@/components/auth/SignUpForm";
 import QueryWrapper from "@/components/providers/query-wrapper";
 import UserDropMenu from "@/components/shared/UserDropMenu";
+import { CartButton } from "@/components/cart/CartButton";
+import { CurrencyConfig } from "@/lib/menu/money";
+import { SIGN_IN_EVENT } from "@/lib/cart";
+import { useDarkHero } from "@/hooks/use-dark-hero";
 
 type NavLink = { label: string; href: string };
 
@@ -29,6 +33,8 @@ export type NavbarClientProps = {
   cta: NavLink;
   announcement?: { text: string; link?: NavLink; dismissible: boolean };
   info: { address: string; phone: string };
+  currency: CurrencyConfig;
+  pricingNote?: string;
 };
 
 const PAD = "px-(--pad)";
@@ -49,13 +55,22 @@ export function NavbarClient({
   cta,
   announcement,
   info,
+  currency,
+  pricingNote,
 }: NavbarClientProps) {
   const pathname = usePathname();
+  const darkHero = useDarkHero();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
   const [barDismissed, setBarDismissed] = useState(false);
+
+  useEffect(() => {
+    const open = () => setSignInDialogOpen(true);
+    window.addEventListener(SIGN_IN_EVENT, open);
+    return () => window.removeEventListener(SIGN_IN_EVENT, open);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -82,6 +97,7 @@ export function NavbarClient({
   const showBar = announcement && !barDismissed;
   const collapseBar = scrolled || open;
   const solid = variant === "solid" || scrolled;
+  const onPhoto = !solid && darkHero;
 
   return (
     <QueryWrapper>
@@ -134,7 +150,9 @@ export function NavbarClient({
               ? "py-4 text-foreground"
               : solid
                 ? "border-border bg-background/85 py-2.5 text-foreground backdrop-blur-md"
-                : "py-4 text-white",
+                : onPhoto
+                  ? "py-4 text-white"
+                  : "py-4 text-foreground",
           )}
         >
           <Link
@@ -181,6 +199,9 @@ export function NavbarClient({
             ))}
           </ul>
           <div className="flex items-center gap-3 max-[900px]:flex-row-reverse">
+            {user && orderingEnabled && (
+              <CartButton currency={currency} pricingNote={pricingNote} />
+            )}
             {user ? (
               <UserDropMenu
                 user={user}

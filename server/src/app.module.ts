@@ -12,6 +12,10 @@ import { TeamModule } from './features/team/team.module';
 import { SettingsModule } from './features/settings/settings.module';
 import { PromotionsModule } from './features/promotions/promotions.module';
 import { GalleryModule } from './features/gallery/gallery.module';
+import { AccountModule } from './features/account/account.module';
+import { CartModule } from './features/cart/cart.module';
+import { MailModule } from './features/mail/mail.module';
+import { OrdersModule } from './features/orders/orders.module';
 
 @Module({
   imports: [
@@ -30,6 +34,10 @@ import { GalleryModule } from './features/gallery/gallery.module';
     SettingsModule,
     PromotionsModule,
     GalleryModule,
+    AccountModule,
+    CartModule,
+    MailModule,
+    OrdersModule,
   ],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
   controllers: [AppController],
