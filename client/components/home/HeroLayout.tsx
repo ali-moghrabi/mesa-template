@@ -66,7 +66,7 @@ async function HeroLayout({
         <div className="animate-rise motion-reduce:animate-none">
           <h1
             id="hero-title"
-            className="max-w-[13ch] text-[clamp(4rem,10.5vw,9rem)] leading-[0.92] font-medium tracking-[-0.055em] text-balance capitalize"
+            className="max-w-[13ch] text-[clamp(3.95rem,10.5vw,9rem)] leading-[0.92] font-medium tracking-[-0.055em] text-balance capitalize text-shadow-sm text-shadow-black/65"
           >
             {lead ? `${lead} ` : null}
             <span className="text-primary">{last}</span>

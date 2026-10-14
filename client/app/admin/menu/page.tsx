@@ -65,7 +65,7 @@ export default async function AdminMenuPage({ searchParams }: Props) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.75 sm:gap-2">
           {canManage && (
             <Link
               href={PROMOTIONS_PATH}
@@ -106,12 +106,12 @@ export default async function AdminMenuPage({ searchParams }: Props) {
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-medium shadow-xs transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
             <ExternalLink className="size-4" />
-            <span className="sr-only sm:not-sr-only">View on site</span>
+            <span className="sr-only lg:not-sr-only">View on site</span>
           </a>
           {canManage && (
             <Link
               href={`${MENU_PAGE_PATH}/new${filters.category ? `?category=${filters.category}` : ""}`}
-              className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary whitespace-nowrap px-4 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 sm:flex-none"
+              className="group inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary whitespace-nowrap px-2 sm:px-4 text-sm font-semibold text-primary-foreground shadow-[0_6px_20px_-6px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition hover:-translate-y-px hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 sm:flex-none"
             >
               <Plus className="size-4.5 transition-transform group-hover:rotate-90" />
               New item

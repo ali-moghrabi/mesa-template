@@ -304,6 +304,11 @@ function Marks({ dish, className }: { dish: PublicDish; className?: string }) {
   );
 }
 
+/*
+ * `sizes` = how wide the photo is DRAWN, not how wide its box is. object-cover fills the box by its
+ * height when the box is taller than the photo: a usual 4:3 dish photo in a 4:5 (portrait) card is
+ * drawn ~1.67× the card's width. Asking for less makes the browser stretch a too-small file (blurry).
+ */
 function Photo({
   dish,
   sizes,
@@ -330,6 +335,8 @@ function Photo({
       fill
       priority={priority}
       sizes={sizes}
+      // Our photos are already compressed once by the API: Next's default 75 visibly smears them
+      quality={90}
       placeholder={dish.imageBlur ? "blur" : "empty"}
       blurDataURL={dish.imageBlur}
       unoptimized={!canOptimize(src)}
@@ -417,7 +424,7 @@ function ListLook({ config, dishes, currency }: LookProps) {
             <Photo
               dish={featured}
               priority
-              sizes="(min-width: 1024px) 440px, 0px"
+              sizes="(min-width: 1024px) 740px, 0px"
             />
             <div
               aria-hidden="true"
@@ -448,7 +455,7 @@ function ListLook({ config, dishes, currency }: LookProps) {
                 className="group -mx-3 flex gap-4 rounded-[calc(var(--radius)*1.4)] px-3 py-5 transition-colors hover:bg-foreground/3 sm:gap-5 sm:py-6"
               >
                 <div className="relative size-20 shrink-0 overflow-hidden rounded-[calc(var(--radius)*1.4)] bg-foreground/6 sm:size-24">
-                  <Photo dish={dish} priority={i < 2} sizes="96px" />
+                  <Photo dish={dish} priority={i < 2} sizes="192px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-3">
@@ -499,7 +506,7 @@ function CarouselLook({ config, dishes, currency }: LookProps) {
                 <Photo
                   dish={dish}
                   priority={i < 3}
-                  sizes="(min-width: 1024px) 360px, (min-width: 640px) 46vw, 80vw"
+                  sizes="(min-width: 1024px) 600px, (min-width: 640px) 77vw, 134vw"
                 />
                 <div
                   aria-hidden="true"

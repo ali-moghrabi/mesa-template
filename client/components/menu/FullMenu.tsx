@@ -82,6 +82,14 @@ const BADGES: Record<string, string> = {
   limited: "Limited",
 };
 
+/**
+ * Rows that scroll sideways on phones (categories, diet chips) fade out at both edges, so a cut-off
+ * chip reads as "swipe for more" instead of "the page is broken". The fade sits in the side
+ * padding, so the first and last chips are fully visible once scrolled to.
+ */
+const SCROLL_ROW =
+  "overflow-x-auto overscroll-x-contain scrollbar-none [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_var(--pad),black_calc(100%-var(--pad)),transparent)]";
+
 const allergenLabel = (a: string) =>
   a === "tree-nuts" ? "Tree nuts" : a.charAt(0).toUpperCase() + a.slice(1);
 
@@ -313,7 +321,7 @@ export function FullMenu({
   );
 
   return (
-    <div className="px-(--pad) pb-24 [--pad:clamp(1.1rem,4vw,3.5rem)]">
+    <div className="overflow-x-clip px-(--pad) pb-24 [--pad:clamp(1.1rem,4vw,3.5rem)]">
       <div
         ref={bar}
         className={cn(
@@ -326,7 +334,7 @@ export function FullMenu({
             ref={nav}
             role={paged ? "tablist" : undefined}
             aria-label="Menu categories"
-            className="-mx-(--pad) flex gap-1 overflow-x-auto px-(--pad) py-3 scrollbar-none [&::-webkit-scrollbar]:hidden"
+            className={cn("-mx-(--pad) flex gap-1 px-(--pad) py-3", SCROLL_ROW)}
           >
             {shown.map((category) => {
               const on = selected === category.slug;
@@ -340,16 +348,16 @@ export function FullMenu({
                   aria-current={!paged && on ? "true" : undefined}
                   onClick={() => pick(category.slug)}
                   className={cn(
-                    "relative shrink-0 rounded-full px-4 py-2 text-[15px] font-medium whitespace-nowrap transition-colors",
+                    "relative inline-flex max-w-[min(17rem,72vw)] shrink-0 items-center rounded-full px-4 py-2 text-[15px] font-medium whitespace-nowrap transition-colors",
                     on
                       ? "bg-foreground text-background"
                       : "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
                   )}
                 >
-                  {category.name}
+                  <span className="truncate">{category.name}</span>
                   <span
                     className={cn(
-                      "ml-1.5 text-xs tabular-nums",
+                      "ml-1.5 shrink-0 text-xs tabular-nums",
                       on ? "text-background/60" : "text-foreground/40",
                     )}
                   >
@@ -374,7 +382,10 @@ export function FullMenu({
                   diets={availableDiets}
                   selected={diets}
                   onToggle={toggleDiet}
-                  className="-mx-(--pad) overflow-x-auto px-(--pad) scrollbar-none sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+                  className={cn(
+                    "-mx-(--pad) px-(--pad) sm:mx-0 sm:px-0 sm:mask-none",
+                    SCROLL_ROW,
+                  )}
                 />
               )}
               {count && <div className="sm:ml-auto">{count}</div>}
@@ -497,7 +508,7 @@ export function FullMenu({
                       category={category}
                       banner={options.showImages}
                     />
-                    <ul className="mt-7 grid gap-x-5 gap-y-9 min-[560px]:grid-cols-2 min-[1000px]:grid-cols-3">
+                    <ul className="mt-7 grid grid-cols-1 gap-x-5 gap-y-9 min-[560px]:grid-cols-2 min-[1000px]:grid-cols-3">
                       {category.items.map((dish) => (
                         <DishTile
                           key={dish.id}
@@ -533,7 +544,7 @@ export function FullMenu({
                 ) : (
                   <>
                     <CategoryHeader category={category} />
-                    <ul className="mt-7 grid gap-4 min-[900px]:grid-cols-2">
+                    <ul className="mt-7 grid grid-cols-1 gap-4 min-[900px]:grid-cols-2">
                       {category.items.map((dish) => (
                         <DishRow
                           key={dish.id}
@@ -700,7 +711,7 @@ function CategoryHeader({
         <div className="min-w-0">
           <h2
             id={`menu-${category.slug}`}
-            className="text-[clamp(1.9rem,3.6vw,2.75rem)] leading-[1.05] font-medium tracking-[-0.03em] text-balance"
+            className="text-[clamp(1.9rem,3.6vw,2.75rem)] leading-[1.05] font-medium tracking-[-0.03em] text-balance wrap-anywhere"
           >
             {category.name}
           </h2>
@@ -711,8 +722,9 @@ function CategoryHeader({
           )}
         </div>
         {serving && (
-          <p className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-foreground/6 px-3 py-1.5 text-sm text-foreground/70 tabular-nums sm:self-auto">
-            <Clock className="size-3.5" /> Served {serving}
+          <p className="inline-flex max-w-full items-center gap-1.5 self-start rounded-2xl bg-foreground/6 px-3 py-1.5 text-sm text-foreground/70 tabular-nums sm:shrink-0 sm:self-auto sm:rounded-full">
+            <Clock className="size-3.5 shrink-0" />{" "}
+            <span>Served {serving}</span>
           </p>
         )}
       </div>
@@ -742,7 +754,7 @@ function DishRow({
   const soldOut = !dish.isAvailable;
   const src = showImage ? mediaSrc(dish.image) : null;
   return (
-    <li className="group relative">
+    <li className="group relative min-w-0">
       <button
         type="button"
         onClick={onOpen}
@@ -755,7 +767,7 @@ function DishRow({
         <div className="flex min-w-0 flex-1 flex-col">
           <DishTitle dish={dish} />
           {dish.description && (
-            <p className="mt-1.5 line-clamp-2 text-[15px] leading-relaxed text-pretty text-foreground/65">
+            <p className="mt-1.5 line-clamp-2 text-[15px] leading-relaxed text-pretty text-foreground/65 wrap-anywhere">
               {dish.description}
             </p>
           )}
@@ -766,10 +778,12 @@ function DishRow({
         </div>
         {src && (
           <div className="relative size-28 shrink-0 self-start overflow-hidden rounded-[calc(var(--radius,0.75rem)*1.1)] bg-foreground/5 sm:size-32">
+            {/* Twice the box: object-cover crops a landscape photo to this square, so it's drawn
+                wider than the box (a 4:3 photo in 128px needs ~170px), and 2× keeps it crisp */}
             <DishImage
               dish={dish}
               src={src}
-              sizes="128px"
+              sizes="256px"
               className="transition-transform duration-500 group-hover:scale-105"
             />
             <SaleTag dish={dish} className="absolute top-1.5 left-1.5" />
@@ -809,12 +823,12 @@ function DishLine({ dish, currency, ordering, showImage, onOpen }: DishProps) {
       >
         {src && (
           <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-foreground/5 sm:size-18">
-            <DishImage dish={dish} src={src} sizes="72px" />
+            <DishImage dish={dish} src={src} sizes="144px" />
           </div>
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
-            <span className="text-lg leading-snug font-medium text-balance group-hover:text-primary">
+            <span className="min-w-0 text-lg leading-snug font-medium text-balance group-hover:text-primary wrap-anywhere">
               {dish.name}
             </span>
             <span
@@ -838,7 +852,7 @@ function DishLine({ dish, currency, ordering, showImage, onOpen }: DishProps) {
             </span>
           </div>
           {dish.description && (
-            <p className="mt-1 line-clamp-2 text-[15px] text-pretty text-foreground/65">
+            <p className="mt-1 line-clamp-2 text-[15px] text-pretty text-foreground/65 wrap-anywhere">
               {dish.description}
             </p>
           )}
@@ -874,7 +888,7 @@ function DishTile({
   const soldOut = !dish.isAvailable;
   const src = showImage ? mediaSrc(dish.image) : null;
   return (
-    <li className="group relative">
+    <li className="group relative min-w-0">
       <button
         type="button"
         onClick={onOpen}
@@ -913,13 +927,13 @@ function DishTile({
           </div>
         )}
         <div className="mt-4 flex items-start justify-between gap-4">
-          <span className="text-lg leading-snug font-semibold text-balance">
+          <span className="min-w-0 text-lg leading-snug font-semibold text-balance wrap-anywhere">
             {dish.name}
           </span>
           <Price dish={dish} currency={currency} align="right" />
         </div>
         {dish.description && (
-          <p className="mt-1.5 line-clamp-2 text-pretty text-foreground/65">
+          <p className="mt-1.5 line-clamp-2 text-pretty text-foreground/65 wrap-anywhere">
             {dish.description}
           </p>
         )}
@@ -945,7 +959,7 @@ function DishTitle({ dish }: { dish: PublicDish }) {
   const badge = dish.badges.find((b) => BADGES[b]);
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="text-[17px] leading-snug font-semibold text-balance">
+      <span className="min-w-0 text-[17px] leading-snug font-semibold text-balance wrap-anywhere">
         {dish.name}
       </span>
       {!dish.isAvailable ? (
@@ -1258,7 +1272,7 @@ function DishSheet({
           />
 
           <div className="px-5 pt-5 pb-6 sm:px-7">
-            <DialogTitle className="text-[1.75rem] leading-tight font-medium tracking-[-0.02em] text-balance">
+            <DialogTitle className="text-[1.75rem] leading-tight font-medium tracking-[-0.02em] text-balance wrap-anywhere">
               {dish.name}
             </DialogTitle>
             <div className="mt-2 flex flex-wrap items-center gap-2">

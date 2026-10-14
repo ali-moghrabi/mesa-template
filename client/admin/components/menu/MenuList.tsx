@@ -214,6 +214,7 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
                       image={item.image}
                       blur={item.imageBlur}
                       name={item.name}
+                      sizes="96px" // 2× the 48px box: sharp on any screen, even after the square crop
                       className={cn(
                         "size-12",
                         !item.isVisible && "opacity-55 grayscale",
@@ -269,6 +270,7 @@ export async function MenuItemsList({ filters, currency, canManage }: Props) {
                 image={item.image}
                 blur={item.imageBlur}
                 name={item.name}
+                sizes="144px" // 2× the 64–72px box
                 className={cn(
                   "size-16 sm:size-18",
                   !item.isVisible && "opacity-55 grayscale",

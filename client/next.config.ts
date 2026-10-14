@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
     remotePatterns: media
       ? [{ protocol: "https", hostname: media.hostname, pathname: "/**" }]
       : [],
-    formats: ["image/avif", "image/webp"],
+    qualities: [75, 90],
     minimumCacheTTL: 2_678_400,
   },
   experimental: {

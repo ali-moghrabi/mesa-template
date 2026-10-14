@@ -8,6 +8,9 @@ import {
   useId,
   useRef,
   useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type MouseEvent,
   type ReactNode,
   type Ref,
 } from "react";
@@ -107,6 +110,29 @@ type Props = {
 
 const PHOTO_MUTATION = ["menu", "photo-upload"] as const;
 
+/**
+ * Number boxes store NaN while they're empty (see useNumberText). Validation sees "not filled in"
+ * instead: optional fields pass, required ones say "Enter a price".
+ */
+function withoutNaN<T>(value: T): T {
+  if (typeof value === "number")
+    return (Number.isNaN(value) ? undefined : value) as T;
+  if (Array.isArray(value)) return value.map(withoutNaN) as T;
+  if (
+    value &&
+    typeof value === "object" &&
+    Object.getPrototypeOf(value) === Object.prototype
+  )
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, withoutNaN(v)]),
+    ) as T;
+  return value;
+}
+const itemResolver = zodResolver(menuItemFormSchema);
+/** A number the guest will see, or undefined while the box is empty */
+const filled = (n: number | undefined) =>
+  typeof n === "number" && Number.isFinite(n) ? n : undefined;
+
 class SaveError extends Error {
   constructor(
     message: string,
@@ -132,7 +158,8 @@ export function MenuItemForm({
     "";
 
   const form = useForm<Values>({
-    resolver: zodResolver(menuItemFormSchema),
+    resolver: (values, context, options) =>
+      itemResolver(withoutNaN(values), context, options),
     defaultValues: item
       ? toItemFormValues(item, firstCategory)
       : emptyMenuItem(firstCategory),
@@ -620,14 +647,17 @@ function PricingSection({
 
   const switchToSizes = () => {
     replace([
-      { ...newVariant("Regular", true), price: getValues("price") ?? 0 },
+      {
+        ...newVariant("Regular", true),
+        price: filled(getValues("price")) ?? 0,
+      },
       newVariant("Large"),
     ]);
     setValue("compareAtPrice", undefined);
   };
   const switchToOnePrice = () => {
     const fallback = variants.find((v) => v.isDefault) ?? variants[0];
-    if (getValues("price") === undefined && fallback)
+    if (filled(getValues("price")) === undefined && fallback)
       setValue("price", fallback.price, { shouldDirty: true });
     replace([]);
   };
@@ -1340,9 +1370,14 @@ function PreviewCard({
 
   const error = problem ?? fieldState.error?.message;
   const variants = values.variants ?? [];
+  const variantPrices = variants
+    .map((v) => filled(v?.price))
+    .filter((p) => p !== undefined);
   const priceShown = variants.length
-    ? Math.min(...variants.map((v) => v?.price ?? 0))
-    : values.price;
+    ? variantPrices.length
+      ? Math.min(...variantPrices)
+      : undefined
+    : filled(values.price);
   const category = categories.find((c) => c.id === values.categoryId);
 
   return (
@@ -1512,11 +1547,12 @@ function PreviewCard({
                 ? formatPrice(priceShown, currency)
                 : "—"}
             </p>
-            {!variants.length && values.compareAtPrice !== undefined && (
-              <p className="text-xs text-muted-foreground tabular-nums line-through">
-                {formatPrice(values.compareAtPrice, currency)}
-              </p>
-            )}
+            {!variants.length &&
+              filled(values.compareAtPrice) !== undefined && (
+                <p className="text-xs text-muted-foreground tabular-nums line-through">
+                  {formatPrice(filled(values.compareAtPrice)!, currency)}
+                </p>
+              )}
           </div>
         </div>
         <p
@@ -1639,8 +1675,12 @@ function ToggleRow({
   );
 }
 
+/*
+ * Placeholders are examples, not values: faint, regular weight (a bold "0.00" in a price box read
+ * as a real price), and they fade out while the box has focus.
+ */
 const inputClass =
-  "h-10 w-full rounded-lg border-input bg-background px-3 text-sm shadow-xs transition-colors placeholder:text-muted-foreground/70 hover:border-foreground/25 focus-visible:border-primary/60 focus-visible:ring-4 focus-visible:ring-primary/15 dark:bg-input/20 aria-invalid:border-destructive aria-invalid:ring-destructive/15 border outline-none";
+  "h-10 w-full rounded-lg border-input bg-background px-3 text-sm shadow-xs transition-colors placeholder:font-normal placeholder:text-foreground/30 focus-visible:placeholder:text-foreground/20 hover:border-foreground/25 focus-visible:border-primary/60 focus-visible:ring-4 focus-visible:ring-primary/15 dark:bg-input/20 aria-invalid:border-destructive aria-invalid:ring-destructive/15 border outline-none";
 
 const chipClass =
   "inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50";
@@ -1656,7 +1696,56 @@ type NumberField = {
   ref: Ref<HTMLInputElement>;
 };
 
-const toNumber = (raw: string) => (raw.trim() === "" ? undefined : Number(raw));
+/**
+ * A number box that types like a text box. The text you type is kept as is while the box has
+ * focus, so you can clear it, type "12.", or replace the 0 with Backspace. The form gets the
+ * number, or NaN while the box is empty: not `undefined`, because react-hook-form shows the
+ * field's starting value again when it's given undefined (that's why the 0 "came back").
+ * type="text" + inputMode: the right keyboard on phones, none of type="number"'s quirks
+ * (scroll changes the value, "1." reads as empty, letters like "e" allowed).
+ */
+function useNumberText(field: NumberField, decimals: boolean) {
+  const [draft, setDraft] = useState<string | null>(null); // non-null while focused
+  const selectAll = useRef(false);
+  const shown =
+    typeof field.value === "number" && Number.isFinite(field.value)
+      ? String(field.value)
+      : "";
+  const allowed = decimals ? /^\d*(?:[.,]\d{0,2})?$/ : /^\d*$/;
+
+  return {
+    name: field.name,
+    ref: field.ref,
+    value: draft ?? shown,
+    type: "text" as const,
+    inputMode: decimals ? ("decimal" as const) : ("numeric" as const),
+    autoComplete: "off",
+    onFocus: (event: FocusEvent<HTMLInputElement>) => {
+      setDraft(shown);
+      // Click in, type the new number: no need to delete the old one first
+      event.currentTarget.select();
+      selectAll.current = true;
+    },
+    // Chrome and Safari drop the selection on the mouse-up of the same click: keep it
+    onMouseUp: (event: MouseEvent<HTMLInputElement>) => {
+      if (selectAll.current) event.preventDefault();
+      selectAll.current = false;
+    },
+    onChange: (event: ChangeEvent<HTMLInputElement>) => {
+      const raw = event.target.value.replace(/\s/g, "");
+      if (!allowed.test(raw)) return; // letters, a second dot, a third decimal: ignored
+      setDraft(raw);
+      const number = Number(raw.replace(",", "."));
+      field.onChange(
+        raw === "" || raw === "." || raw === "," ? Number.NaN : number,
+      );
+    },
+    onBlur: () => {
+      setDraft(null);
+      field.onBlur();
+    },
+  };
+}
 
 function MoneyInput({
   id,
@@ -1676,6 +1765,7 @@ function MoneyInput({
   prefix?: string;
 }) {
   const symbol = currencySymbol(currency);
+  const input = useNumberText(field, true);
   return (
     <div className="relative">
       <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
@@ -1683,21 +1773,14 @@ function MoneyInput({
         {symbol}
       </span>
       <Input
-        {...field}
+        {...input}
         id={id}
-        type="number"
-        inputMode="decimal"
-        step="0.01"
-        min={0}
         aria-label={ariaLabel}
         aria-invalid={invalid}
-        value={field.value ?? ""}
-        onChange={(event) => field.onChange(toNumber(event.target.value))}
-        onWheel={(event) => event.currentTarget.blur()}
         placeholder="0.00"
         className={cn(
           inputClass,
-          "tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          "tabular-nums",
           prefix || symbol.length > 1 ? "pl-11" : "pl-7",
           large && "h-11 text-base font-semibold",
         )}
@@ -1719,24 +1802,15 @@ function NumberInput({
   suffix: string;
   placeholder?: string;
 }) {
+  const input = useNumberText(field, false);
   return (
     <div className="relative">
       <Input
-        {...field}
+        {...input}
         id={id}
-        type="number"
-        inputMode="numeric"
-        step={1}
-        min={0}
         aria-invalid={invalid}
-        value={field.value ?? ""}
-        onChange={(event) => field.onChange(toNumber(event.target.value))}
-        onWheel={(event) => event.currentTarget.blur()}
         placeholder={placeholder}
-        className={cn(
-          inputClass,
-          "pr-14 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none",
-        )}
+        className={cn(inputClass, "pr-14 tabular-nums")}
       />
       <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">
         {suffix}

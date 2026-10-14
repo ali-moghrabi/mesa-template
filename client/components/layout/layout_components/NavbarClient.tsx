@@ -110,11 +110,11 @@ export function NavbarClient({
         {showBar && (
           <div
             className={cn(
-              "relative flex items-center justify-center gap-3 overflow-hidden bg-white dark:bg-neutral-900 px-10 text-xs text-neutral-900 dark:text-gray-50 transition-all duration-300",
+              "relative flex items-center justify-center gap-4 overflow-hidden bg-white dark:bg-neutral-900 px-10 text-xs text-neutral-900 dark:text-gray-50 transition-all duration-300",
               collapseBar ? "max-h-0 py-0" : "max-h-16 py-2",
             )}
           >
-            <p className="text-center font-medium">{announcement.text}</p>
+            <p className="text-start font-medium">{announcement.text}</p>
             {announcement.link && (
               <Link
                 href={announcement.link.href}

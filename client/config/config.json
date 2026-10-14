@@ -88,7 +88,7 @@
     },
     "announcementBar": {
       "enabled": true,
-      "text": "Live jazz every Friday night. Reserve your table today.",
+      "text": "Live jazz. Reserve your table today.",
       "link": {
         "label": "Reserve",
         "href": "/reservations"

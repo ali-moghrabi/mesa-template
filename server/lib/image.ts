@@ -17,7 +17,7 @@ export interface OptimizeOptions {
   quality: number;
 }
 
-export const MENU_IMAGE: OptimizeOptions = { maxSide: 1600, quality: 80 };
+export const MENU_IMAGE: OptimizeOptions = { maxSide: 2000, quality: 90 };
 
 export interface OptimizedImage {
   buffer: Buffer;
@@ -67,7 +67,7 @@ export async function optimizeImage(
   }
 
   const longest = Math.max(metadata.width ?? 0, metadata.height ?? 0);
-  const shrinking = longest > options.maxSide;
+  const scale = longest > options.maxSide ? options.maxSide / longest : 1;
 
   let pipeline = sharp(input, {
     autoOrient: true,
@@ -84,17 +84,16 @@ export async function optimizeImage(
     })
     .toColourspace('srgb');
 
-  if (shrinking) pipeline = pipeline.sharpen({ sigma: 0.5 });
+  if (scale < 0.75) pipeline = pipeline.sharpen({ sigma: 0.6, m1: 0.8, m2: 2 });
 
   let result: { data: Buffer; info: sharp.OutputInfo };
   try {
     result = await pipeline
       .webp({
         quality: options.quality,
-        alphaQuality: 90,
-        effort: 6,
+        alphaQuality: 95,
+        effort: 5,
         smartSubsample: true,
-        smartDeblock: true,
         preset: 'photo',
       })
       .toBuffer({ resolveWithObject: true });
@@ -107,7 +106,7 @@ export async function optimizeImage(
 
   const tiny = await sharp(result.data)
     .resize(16, 16, { fit: 'inside' })
-    .webp({ quality: 40, effort: 6 })
+    .webp({ quality: 60, effort: 6 })
     .toBuffer();
 
   return {
