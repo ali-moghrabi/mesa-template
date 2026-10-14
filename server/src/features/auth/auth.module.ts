@@ -12,6 +12,7 @@ import {
   PasswordReset,
   PasswordResetSchema,
 } from 'src/schemas/password-reset.schema';
+import { AccountModule } from '../account/account.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import {
       { name: PasswordReset.name, schema: PasswordResetSchema },
     ]),
     JwtModule.register({}),
+    AccountModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, PasswordResetService, JwtStrategy],

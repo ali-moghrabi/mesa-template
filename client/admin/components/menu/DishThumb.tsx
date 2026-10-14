@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { isRemote, mediaSrc } from "@/admin/lib/menu/format";
+import { canOptimize, mediaSrc } from "@/admin/lib/menu/format";
 
 const SMALL_WORDS = new Set([
   "a",
@@ -58,7 +58,7 @@ export function DishThumb({
           alt=""
           fill
           sizes="80px"
-          unoptimized={isRemote(src)}
+          unoptimized={canOptimize(src)}
           onError={() => setFailed(src)}
           className="object-cover"
         />

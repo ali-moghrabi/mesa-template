@@ -42,7 +42,7 @@ export class ChangePasswordDto {
   @IsOptional()
   @IsString()
   @MaxLength(PASSWORD_MAX)
-  currentPassword!: string;
+  currentPassword?: string;
 
   @IsString()
   @MinLength(PASSWORD_MIN, {
@@ -57,4 +57,12 @@ export class DeleteAccountDto {
   @IsString()
   @MaxLength(PASSWORD_MAX)
   password?: string;
+}
+
+export const VERIFY_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
+
+export class VerifyTokenDto {
+  @IsString()
+  @Matches(VERIFY_TOKEN_PATTERN, { message: 'This link is not valid.' })
+  token!: string;
 }

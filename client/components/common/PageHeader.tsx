@@ -93,7 +93,7 @@ export function PageHeader({
         {stats.length > 0 && (
           <dl
             className={cn(
-              "grid gap-px overflow-hidden rounded-[calc(var(--radius)*1.8)] border border-foreground/10 bg-foreground/10 sm:max-w-md lg:w-88",
+              "grid gap-px overflow-hidden rounded-2xl border border-foreground/10 bg-foreground/10 sm:max-w-md lg:w-88",
               stats.length === 1 ? "grid-cols-1" : "grid-cols-2",
             )}
           >

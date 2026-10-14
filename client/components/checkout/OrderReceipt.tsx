@@ -256,7 +256,6 @@ export function OrderReceipt({
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="space-y-6">
-          {/* Progress */}
           <Card title="Order status">
             {cancelled ? (
               <p className="flex items-center gap-3 text-foreground/70">
@@ -288,7 +287,7 @@ export function OrderReceipt({
                         className={cn(
                           "relative grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold",
                           done
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-primary text-white"
                             : "bg-foreground/[0.07] text-foreground/40",
                           i === current && "ring-4 ring-primary/20",
                         )}

@@ -7,6 +7,7 @@ import { adminFetch } from "@/admin/lib/menu/api";
 import { ORDERS_ROUTE, type OrderView } from "@/lib/checkout";
 import { OrderReceipt } from "@/components/checkout/OrderReceipt";
 import QueryWrapper from "@/components/providers/query-wrapper";
+import { notFound } from "next/navigation";
 
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
@@ -23,6 +24,9 @@ export default async function AccountOrderPage({
   await requireUser();
   const { id } = await params;
   const config = getConfig();
+
+  if (!config.features?.onlineOrdering) notFound();
+
   const result = OBJECT_ID.test(id)
     ? await adminFetch<OrderView>(`/orders/${id}`)
     : null;

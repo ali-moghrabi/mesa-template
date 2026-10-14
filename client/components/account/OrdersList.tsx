@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * /account/orders: what's on its way (live), and the history with "Order again".
- * Active orders come from the server and refresh every 30 seconds; older pages load on demand.
- */
-
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -458,7 +453,7 @@ export function ReorderButton({
         "inline-flex shrink-0 items-center justify-center gap-2 rounded-full font-semibold transition-all disabled:opacity-60",
         compact
           ? "h-9 border border-foreground/15 px-3.5 text-sm hover:border-primary hover:text-primary"
-          : "h-11 bg-primary px-5 text-primary-foreground hover:brightness-105",
+          : "h-11 bg-primary px-5 text-white hover:brightness-105",
         className,
       )}
     >

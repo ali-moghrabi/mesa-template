@@ -417,7 +417,7 @@ function BrandMark({ name }: { name: string }) {
   return (
     <span
       aria-hidden="true"
-      className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-[15px] font-bold text-primary-foreground shadow-sm ring-1 ring-black/5"
+      className="grid size-9 shrink-0 place-items-center rounded-[10px] bg-primary text-[15px] font-bold text-white shadow-sm ring-1 ring-black/5"
     >
       {name.charAt(0).toUpperCase()}
     </span>

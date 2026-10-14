@@ -1,11 +1,18 @@
 "use client";
 
+import Form from "next/form";
+import { useSyncExternalStore } from "react";
 import { CalendarDays, ChevronDown, Users } from "lucide-react";
+import { RESERVATIONS_ROUTE } from "@/lib/reservations";
 import { cn } from "@/lib/utils";
 
 type BookingBarProps = {
   label: string;
   maxPartySize: number;
+  minPartySize?: number;
+  advanceDays?: number;
+  timezone?: string;
+  action?: string;
   className?: string;
 };
 
@@ -15,15 +22,52 @@ const LABEL = "flex items-center gap-1.5 text-xs text-foreground/65";
 const CONTROL =
   "w-full min-w-0 appearance-none bg-transparent text-base font-medium outline-none";
 
+const noSubscribe = () => () => {};
+const noClock = () => "";
+
+function dayIn(timeZone: string | undefined, days: number): string {
+  const at = new Date(Date.now() + days * 86_400_000);
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(at);
+  } catch {
+    return at.toISOString().slice(0, 10);
+  }
+}
+
 export function BookingBar({
   label,
   maxPartySize,
+  minPartySize = 1,
+  advanceDays = 30,
+  timezone,
+  action = RESERVATIONS_ROUTE,
   className,
 }: BookingBarProps) {
-  const sizes = Array.from({ length: maxPartySize }, (_, i) => i + 1);
+  const today = useSyncExternalStore(
+    noSubscribe,
+    () => dayIn(timezone, 0),
+    noClock,
+  );
+  const lastDay = useSyncExternalStore(
+    noSubscribe,
+    () => dayIn(timezone, advanceDays),
+    noClock,
+  );
+
+  const min = Math.max(1, Math.min(minPartySize, maxPartySize));
+  const sizes = Array.from(
+    { length: maxPartySize - min + 1 },
+    (_, i) => min + i,
+  );
 
   return (
-    <div
+    <Form
+      action={action}
       aria-label="Quick reservation"
       className={cn(
         "grid w-full max-w-176 grid-cols-2 gap-2 rounded-[calc(var(--radius)*1.6)] bg-background p-2 text-foreground shadow-2xl shadow-black/30 sm:grid-cols-[1fr_1fr_auto]",
@@ -38,7 +82,8 @@ export function BookingBar({
         <input
           type="date"
           name="date"
-          required
+          min={today || undefined}
+          max={lastDay || undefined}
           className={cn(CONTROL, "text-left")}
         />
       </label>
@@ -49,8 +94,8 @@ export function BookingBar({
           Guests
         </span>
         <select
-          name="guests"
-          defaultValue={Math.min(2, maxPartySize)}
+          name="party"
+          defaultValue={Math.min(Math.max(2, min), maxPartySize)}
           className={cn(CONTROL, "pr-6")}
         >
           {sizes.map((n) => (
@@ -67,10 +112,10 @@ export function BookingBar({
 
       <button
         type="submit"
-        className="col-span-2 inline-flex min-h-13.5 items-center justify-center rounded-[calc(var(--radius)*1.1)] bg-primary px-7 font-semibold text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:col-span-1 cursor-pointer hover:bg-primary/80"
+        className="col-span-2 inline-flex min-h-13.5 cursor-pointer items-center justify-center rounded-[calc(var(--radius)*1.1)] bg-primary px-7 font-semibold text-white transition hover:bg-primary/80 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:col-span-1"
       >
         {label}
       </button>
-    </div>
+    </Form>
   );
 }

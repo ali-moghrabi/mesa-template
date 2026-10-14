@@ -72,7 +72,7 @@ const STRUCTURE: { id: string; label: string; items: ItemDefinition[] }[] = [
         label: "Reservations",
         href: "/admin/reservations",
         icon: "reservations",
-        anyOf: ["reservations:manage"],
+        anyOf: ["reservations:view", "reservations:manage"],
         when: page("reservations"),
       },
       {

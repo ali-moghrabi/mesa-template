@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { Section as SectionConfig } from "@/config/schema";
+import { getConfig } from "@/config/loader";
 import { Section } from "@/components/common/Section";
 import { NewsletterForm } from "../forms/NewsletterForm";
 import { newsletterSchema } from "./schema";
@@ -11,6 +12,8 @@ type Props = {
 export function Newsletter({ section }: Props) {
   const props = newsletterSchema.parse(section.props);
   const split = section.variant === "split" && props.image;
+  const { legal } = getConfig() as unknown as { legal?: { privacy?: unknown } };
+  const privacyHref = legal?.privacy ? "/legal/privacy" : undefined;
 
   if (split) {
     return (
@@ -39,6 +42,7 @@ export function Newsletter({ section }: Props) {
               tone="onPrimary"
               placeholder={props.placeholder}
               buttonLabel={props.buttonLabel}
+              privacyHref={privacyHref}
               className="mt-2 max-w-md"
             />
           </div>
@@ -57,7 +61,6 @@ export function Newsletter({ section }: Props) {
           <h2 className="text-[clamp(2rem,4.2vw,3.25rem)] leading-[1.05] font-medium tracking-[-0.04em] text-balance">
             {props.title}
           </h2>
-
           {props.subtitle && (
             <p className="mt-3 max-w-md text-lg text-pretty text-foreground/75">
               {props.subtitle}
@@ -69,6 +72,7 @@ export function Newsletter({ section }: Props) {
           tone="light"
           placeholder={props.placeholder}
           buttonLabel={props.buttonLabel}
+          privacyHref={privacyHref}
         />
       </div>
     </Section>

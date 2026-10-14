@@ -357,7 +357,7 @@ export class OrdersAdminService {
             },
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<OrderRow>();
     if (!updated) throw changedMeanwhile();
@@ -379,7 +379,7 @@ export class OrdersAdminService {
       .findByIdAndUpdate(
         order._id,
         { $set: { staffNote: note } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<OrderRow>();
     return this.adminView(updated!);
@@ -475,7 +475,7 @@ export class OrdersAdminService {
             },
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<OrderRow>();
     if (!updated) throw changedMeanwhile();
@@ -569,7 +569,7 @@ export class OrdersAdminService {
             },
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<OrderRow>();
     return this.adminView(updated ?? (await this.find(String(order._id))));

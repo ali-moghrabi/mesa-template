@@ -78,7 +78,7 @@ export class SettingsService {
             },
           },
           {
-            new: true,
+            returnDocument: 'after',
             upsert: true,
             projection: {
               openingHours: 1,

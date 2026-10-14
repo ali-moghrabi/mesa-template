@@ -6,8 +6,11 @@ import {
   HttpStatus,
   Patch,
   Post,
+  Query,
+  Req,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import type { Request } from 'express';
 import { Authorize } from 'decorators/permission.decorator';
 import {
   CurrentUser,
@@ -18,7 +21,14 @@ import {
   ChangePasswordDto,
   DeleteAccountDto,
   UpdateAccountDto,
+  VerifyTokenDto,
 } from './dto/account.dto';
+import { EmailVerificationService } from './email-verification.service';
+
+const clientIp = (req: Request) =>
+  (req.headers['x-forwarded-for'] as string | undefined)
+    ?.split(',')[0]
+    ?.trim() || req.ip;
 
 /**
  * The signed-in person's own account (the website's /account page). Any role.
@@ -27,7 +37,10 @@ import {
 @Controller('account')
 @Authorize()
 export class AccountController {
-  constructor(private readonly account: AccountService) {}
+  constructor(
+    private readonly account: AccountService,
+    private readonly verification: EmailVerificationService,
+  ) {}
 
   /** GET /api/v1/account → the account */
   @Get()
@@ -39,6 +52,17 @@ export class AccountController {
   @Patch()
   update(@CurrentUser() me: CurrentActor, @Body() dto: UpdateAccountDto) {
     return this.account.update(me.id, dto);
+  }
+
+  /**
+   * POST /api/v1/account/verify-email → { status: "sent" | "cooldown" | "verified", sentTo, sentAt, resendAt }
+   * Emails a verification link to the account's address. One a minute, five an hour.
+   */
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  sendVerification(@CurrentUser() me: CurrentActor, @Req() req: Request) {
+    return this.verification.send(me.id, { ip: clientIp(req) });
   }
 
   /** POST /api/v1/account/password { currentPassword, newPassword } · 400 wrong current password */
@@ -69,5 +93,29 @@ export class AccountController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   remove(@CurrentUser() me: CurrentActor, @Body() dto: DeleteAccountDto) {
     return this.account.remove(me.id, dto.password);
+  }
+}
+
+/**
+ * The link in the verification email (public: it may open on another device, signed out).
+ *   GET  /api/v1/email-verification?token=…  → { email (masked), status: "pending" | "verified" }
+ *   POST /api/v1/email-verification/confirm { token } → the same, now "verified"
+ * 404 unknown link · 410 expired, or sent to an older address
+ */
+@Controller('email-verification')
+export class EmailVerificationController {
+  constructor(private readonly verification: EmailVerificationService) {}
+
+  @Get()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  check(@Query() query: VerifyTokenDto) {
+    return this.verification.check(query.token);
+  }
+
+  @Post('confirm')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  confirm(@Body() dto: VerifyTokenDto) {
+    return this.verification.confirm(dto.token);
   }
 }

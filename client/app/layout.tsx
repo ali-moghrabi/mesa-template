@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import { getConfig } from "@/config/loader";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { generateThemeCss } from "@/config/generate-css";
-import "./globals.css";
+import { Consent } from "@/components/consent/Consent";
 import { Toaster } from "@/components/ui/toast";
+import { rootMetadata, rootViewport } from "@/config/seo";
+import { StructuredData } from "@/components/seo/StructuredData";
+import "./globals.css";
 
 const font = DM_Sans({
   subsets: ["latin"],
@@ -12,13 +14,8 @@ const font = DM_Sans({
   display: "swap",
 });
 
-export function generateMetadata(): Metadata {
-  const { brand, seo } = getConfig();
-  return {
-    title: `${brand.name}`,
-    description: seo.defaultDescription,
-  };
-}
+export const generateMetadata = rootMetadata;
+export const generateViewport = rootViewport;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   const { theme } = getConfig();
@@ -35,6 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </style>
       </head>
       <body>
+        <StructuredData />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -42,6 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           storageKey="mesa-admin-theme"
           disableTransitionOnChange
         >
+          <Consent />
           {children}
           <Toaster />
         </ThemeProvider>

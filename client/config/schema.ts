@@ -27,6 +27,7 @@ const SECTION_TYPES = Object.keys(SECTION_VARIANTS) as [
 const SECTION_SOURCE: Partial<Record<SectionType, string>> = {
   about: "about",
   stats: "stats",
+  team: "team",
   faq: "faqs",
 };
 
@@ -140,6 +141,7 @@ const brand = obj({
   tagline: text,
   logo: obj({ light: imagePath, dark: imagePath.optional() }),
   description: text.optional(),
+  monogram: z.string().trim().min(1).max(2).optional(),
   favicon: imagePath.optional(),
   ogImage: imagePath.optional(),
 });
@@ -303,6 +305,17 @@ const content = obj({
     )
     .min(1)
     .superRefine(uniqueIds("gallery image")),
+  team: z
+    .array(
+      obj({
+        name: text,
+        role: text,
+        bio: text.optional(),
+        image: imagePath.optional(),
+        links: z.array(obj({ label: text, url: z.url() })).optional(),
+      }),
+    )
+    .min(1),
   faqs: z.array(obj({ question: text, answer: text })).min(1),
   events: z
     .array(
@@ -486,6 +499,9 @@ const business = obj({
     requirePhone: z.boolean().default(true),
     allowSpecialRequests: z.boolean().default(true),
     occasions: z.array(text).min(1).optional(),
+    lastSeatingMinutes: z.number().int().min(0).max(240).optional(),
+    durationMinutes: z.number().int().min(15).max(480).optional(),
+    maxCoversPerSlot: z.number().int().min(1).max(10000).optional(),
   }).superRefine((r, ctx) => {
     if (r.minPartySize > r.maxPartySize)
       ctx.addIssue({
@@ -517,15 +533,10 @@ const features = obj({
   instagramFeed: flag,
 });
 
-/* ───────────── ordering (checkout) ───────────── */
+export const PAYMENT_METHODS = ["cod", "stripe", "whish"] as const;
 
-/** Ways to pay at checkout. A new gateway later = a new id here (and its code). */
-export const PAYMENT_METHODS = ["cod", "stripe"] as const;
-
-/** Prices are in the primary currency, normal units (3 = $3.00) */
 const amount = z.number().min(0).max(100_000);
 
-/** [earliest, latest] minutes, e.g. [35, 50] */
 const etaRange = z
   .tuple([z.number().int().min(0).max(600), z.number().int().min(0).max(600)])
   .refine(
@@ -538,9 +549,7 @@ const deliveryArea = obj({
     .string()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use kebab-case, e.g. hamra"),
   name: text,
-  /** Replaces delivery.fee for this area */
   fee: amount.optional(),
-  /** Replaces delivery.minimumOrder for this area */
   minimumOrder: amount.optional(),
 });
 
@@ -556,11 +565,9 @@ const ordering = obj({
   }),
   delivery: obj({
     fee: amount,
-    /** Free delivery from this subtotal; leave it out for never */
     freeOver: amount.positive().optional(),
     minimumOrder: amount.default(0),
     etaMinutes: etaRange,
-    /** Empty = deliver anywhere at the same fee */
     areas: z
       .array(deliveryArea)
       .default([])
@@ -568,7 +575,6 @@ const ordering = obj({
   }).optional(),
   pickup: obj({
     etaMinutes: etaRange,
-    /** Defaults to business.address */
     address: text.optional(),
     instructions: text.optional(),
   }).optional(),
@@ -584,7 +590,6 @@ const ordering = obj({
       z.literal(60),
     ]),
   }).default({ enabled: true, daysAhead: 2, slotMinutes: 15 }),
-  /** Tip choices in % of the subtotal; [] = no tips */
   tips: z
     .array(z.number().int().min(1).max(50))
     .max(5, "Up to 5 tip choices")
@@ -600,21 +605,47 @@ const seo = obj({
       (u) => /^https?:\/\//.test(u) && !u.endsWith("/"),
       "Use http(s) and no trailing slash",
     ),
+  /** 1200×630 picture shown when a link is shared (WhatsApp, Facebook, X, iMessage…) */
   ogImage: imagePath,
+  ogImageAlt: text.max(120).optional(),
   siteName: text.optional(),
   titleTemplate: z
     .string()
     .refine((t) => t.includes("%s"), 'Must contain "%s"')
     .optional(),
-  defaultTitle: text.optional(),
+  defaultTitle: text.max(70, "Keep titles under 70 characters").optional(),
   keywords: z.array(text).optional(),
   twitterHandle: z
     .string()
     .regex(/^@\w{1,15}$/, "Use @handle")
     .optional(),
+  /** Language and country of the site for link previews: "en_US", "ar_LB", "fr_FR" */
+  locale: z
+    .string()
+    .regex(/^[a-z]{2}_[A-Z]{2}$/, "Use a code like en_US")
+    .optional(),
+  /** true on staging and demo copies: search engines are told to stay away */
+  noindex: z.boolean().optional(),
+  /** The codes from Google Search Console / Bing Webmaster Tools ("Verify with an HTML tag") */
+  verification: obj({
+    google: text.optional(),
+    bing: text.optional(),
+    yandex: text.optional(),
+  }).optional(),
   structuredData: obj({
-    type: z.literal("Restaurant"),
-    servesCuisine: z.array(text).min(1),
+    /** What kind of place it is, for Google */
+    type: z.enum([
+      "Restaurant",
+      "CafeOrCoffeeShop",
+      "BarOrPub",
+      "Bakery",
+      "FastFoodRestaurant",
+      "IceCreamShop",
+      "Winery",
+      "Brewery",
+    ]),
+    /** Defaults to business.cuisine */
+    servesCuisine: z.array(text).min(1).optional(),
     acceptsReservations: z.boolean(),
   }).optional(),
 });
@@ -646,15 +677,22 @@ const integrations = obj({
   }).optional(),
 });
 
-const legalDoc = obj({ title: text, updated: isoDate, body: text });
+const legalDoc = obj({
+  title: text,
+  updated: isoDate,
+  body: z.union([text, z.array(text).min(1)]),
+});
 
 const legal = obj({
   privacy: legalDoc.optional(),
   terms: legalDoc.optional(),
   cookies: obj({
+    title: text.optional(),
     message: text,
     acceptLabel: text,
     declineLabel: text,
+    manageLabel: text.optional(),
+    policyHref: text.optional(),
   }).optional(),
 });
 
@@ -787,7 +825,6 @@ export const configSchema = obj({
       ["features", "whatsappButton"],
       "whatsappButton needs business.whatsapp",
     );
-
   if (cfg.features.onlineOrdering) {
     if (!cfg.features.delivery && !cfg.features.pickup)
       add(

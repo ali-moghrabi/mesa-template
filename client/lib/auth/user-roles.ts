@@ -1,24 +1,40 @@
+/**
+ * Roles are stored on the user. Permissions live here, in code.
+ * Endpoints check a permission ("menu:manage"), never a role name, so changing what a role may do
+ * is a one-line edit in this file, with no database migration.
+ *
+ * Copy this file to the website too (lib/auth/roles.ts): it decides what the admin panel shows.
+ */
+
 export const ROLES = ["customer", "staff", "manager", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
-  "menu:availability",
-  "menu:manage",
-  "reservations:manage",
-  "orders:manage",
-  "orders:edit",
-  "content:manage",
-  "users:manage",
-  "settings:manage",
+  "menu:availability", //   mark dishes sold out / back in stock during service
+  "menu:manage", //         create, edit, delete dishes and categories
+  "reservations:view", //   see the bookings (the day, requests, guest details)
+  "reservations:manage", // confirm, decline, seat, cancel, edit bookings, take phone bookings
+  "orders:manage", //       see online orders and move them along (accept, preparing, ready, done)
+  "orders:edit", //         change an order's dishes and prices, cancel paid orders, refund (owner only)
+  "content:manage", //      events, gallery, testimonials, page texts
+  "analytics:view", //      sales figures on the overview: revenue, top dishes, busiest times
+  "users:manage", //        list users, change roles, disable accounts
+  "settings:manage", //     restaurant settings (hours, currency rate, features)
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const STAFF: Permission[] = [
   "menu:availability",
-  "reservations:manage",
+  "reservations:view",
   "orders:manage",
 ];
-const MANAGER: Permission[] = [...STAFF, "menu:manage", "content:manage"];
+const MANAGER: Permission[] = [
+  ...STAFF,
+  "reservations:manage",
+  "menu:manage",
+  "content:manage",
+  "analytics:view",
+];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   customer: [],

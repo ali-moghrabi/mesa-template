@@ -5,7 +5,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { Env, validateEnv } from './config/env';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AuthModule } from './features/auth/auth.module';
 import { MenuModule } from './features/menu/menu.module';
 import { TeamModule } from './features/team/team.module';
@@ -16,6 +15,10 @@ import { AccountModule } from './features/account/account.module';
 import { CartModule } from './features/cart/cart.module';
 import { MailModule } from './features/mail/mail.module';
 import { OrdersModule } from './features/orders/orders.module';
+import { ReservationsModule } from './features/reservations/reservations.module';
+import { MessagesModule } from './features/messages/messages.module';
+import { OverviewModule } from './features/overview/overview.module';
+import { NewsletterModule } from './features/newsletter/newsletter.module';
 
 @Module({
   imports: [
@@ -38,8 +41,12 @@ import { OrdersModule } from './features/orders/orders.module';
     CartModule,
     MailModule,
     OrdersModule,
+    ReservationsModule,
+    MessagesModule,
+    OverviewModule,
+    NewsletterModule,
   ],
-  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
   controllers: [AppController],
 })
 export class AppModule {}

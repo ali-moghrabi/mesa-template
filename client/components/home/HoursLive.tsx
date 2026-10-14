@@ -160,7 +160,7 @@ export function WeekTable({
               <dt className="flex items-center gap-2">
                 {dayName(day)}
                 {isToday && (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide text-primary-foreground uppercase">
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
                     Today
                   </span>
                 )}

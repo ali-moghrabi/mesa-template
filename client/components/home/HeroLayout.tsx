@@ -82,7 +82,11 @@ async function HeroLayout({
             {showBooking && primaryCta ? (
               <BookingBar
                 label={primaryCta.label}
+                action={primaryCta.href}
+                minPartySize={business.reservations.minPartySize}
                 maxPartySize={business.reservations.maxPartySize}
+                advanceDays={business.reservations.advanceDays}
+                timezone={business.timezone}
                 className="sm:flex-1"
               />
             ) : (

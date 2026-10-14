@@ -238,7 +238,7 @@ function ContactActions({
             {...(external && { target: "_blank", rel: "noreferrer" })}
             className="group flex items-center gap-3 rounded-2xl border border-foreground/10 px-3.5 py-3 transition-colors hover:border-primary/40 hover:bg-primary/4"
           >
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
               <Icon className="size-4.5" />
             </span>
             <span className="min-w-0">
@@ -334,7 +334,7 @@ function MapLook({ config, hours, place, timeFormat }: LookProps) {
               className="absolute inset-0 size-full border-0 grayscale-35 dark:filter-[invert(0.9)_hue-rotate(180deg)_grayscale(0.3)_contrast(0.9)]"
             />
             <div className="absolute inset-x-3 bottom-3 flex flex-col gap-3 rounded-2xl bg-background/90 p-4 shadow-xl ring-1 ring-foreground/10 backdrop-blur-md sm:inset-x-auto sm:right-4 sm:bottom-4 sm:max-w-sm sm:flex-row sm:items-center sm:p-4">
-              <span className="hidden size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground sm:grid">
+              <span className="hidden size-11 shrink-0 place-items-center rounded-full bg-primary text-white sm:grid">
                 <MapPin className="size-5" />
               </span>
               <div className="min-w-0 flex-1 text-sm">

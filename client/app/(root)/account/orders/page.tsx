@@ -7,6 +7,7 @@ import { adminFetch } from "@/admin/lib/menu/api";
 import type { MyOrders } from "@/lib/checkout";
 import { OrdersList } from "@/components/account/OrdersList";
 import QueryWrapper from "@/components/providers/query-wrapper";
+import { notFound } from "next/navigation";
 
 export function generateMetadata(): Metadata {
   const { brand } = getConfig();
@@ -16,6 +17,9 @@ export function generateMetadata(): Metadata {
 export default async function AccountOrdersPage() {
   await requireUser();
   const config = getConfig();
+
+  if (!config.features?.onlineOrdering) notFound();
+
   const result = await adminFetch<MyOrders>("/orders/mine");
 
   if (!result.ok) {

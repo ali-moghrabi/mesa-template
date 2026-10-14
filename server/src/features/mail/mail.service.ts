@@ -29,7 +29,14 @@ export class MailService {
     return this.transporter;
   }
 
-  async send(to: string, email: EmailContent): Promise<void> {
+  async send(
+    to: string,
+    email: EmailContent,
+    {
+      replyTo,
+      headers,
+    }: { replyTo?: string; headers?: Record<string, string> } = {},
+  ): Promise<void> {
     const transport = this.transport();
     if (!transport) {
       this.logger.warn(
@@ -43,6 +50,8 @@ export class MailService {
       subject: email.subject,
       html: email.html,
       text: email.text,
+      ...(replyTo && { replyTo }),
+      ...(headers && { headers }),
     });
     this.logger.log(
       `Sent "${email.subject}" to ${to.replace(/(^.).*(@.*$)/, '$1***$2')}`,

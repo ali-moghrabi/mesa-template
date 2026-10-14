@@ -7,13 +7,17 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { layout } = getConfig();
+  const { layout, features } = getConfig();
 
   return (
     <div>
       <Navbar />
       <main>{children}</main>
-      <Footer footer={layout.footer} />
+      <Footer
+        footer={layout.footer}
+        newsletter={features.newsletter}
+        cookieSettings={features.cookieBanner}
+      />
     </div>
   );
 }

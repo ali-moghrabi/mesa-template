@@ -2,24 +2,38 @@ export const ROLES = ['customer', 'staff', 'manager', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [
-  'menu:availability',
-  'menu:manage',
-  'reservations:manage',
-  'orders:manage',
-  'orders:edit',
-  'content:manage',
-  'users:manage',
-  'settings:manage',
+  'menu:availability', //   mark dishes sold out / back in stock during service
+  'menu:manage', //         create, edit, delete dishes and categories
+  'reservations:view', //   see the bookings (the day, requests, guest details)
+  'reservations:manage', // confirm, decline, seat, cancel, edit bookings, take phone bookings
+  'orders:manage', //       see online orders and move them along (accept, preparing, ready, done)
+  'orders:edit', //         change an order's dishes and prices, cancel paid orders, refund (owner only)
+  'content:manage', //      events, gallery, page texts, contact messages
+  'analytics:view', //      sales figures on the overview: revenue, top dishes, busiest times
+  'users:manage', //        list users, change roles, disable accounts
+  'settings:manage', //     restaurant settings (hours, currency rate, features)
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 const STAFF: Permission[] = [
   'menu:availability',
-  'reservations:manage',
+  'reservations:view',
   'orders:manage',
 ];
-const MANAGER: Permission[] = [...STAFF, 'menu:manage', 'content:manage'];
+const MANAGER: Permission[] = [
+  ...STAFF,
+  'reservations:manage',
+  'menu:manage',
+  'content:manage',
+  'analytics:view',
+];
 
+/**
+ *  customer: a guest with an account. No access to the admin panel.
+ *  staff:    waiters and kitchen. The daily service: sees bookings, moves orders, "sold out".
+ *  manager:  runs the restaurant: manages bookings, the menu, events, gallery, sees the sales.
+ *  admin:    the owner. Everything, including team accounts and settings.
+ */
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   customer: [],
   staff: STAFF,

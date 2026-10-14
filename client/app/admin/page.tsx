@@ -1,28 +1,40 @@
-import React from "react";
 import type { Metadata } from "next";
 import { getConfig } from "@/config/loader";
 import { requireTeam } from "@/lib/auth/get-user";
+import { adminFetch } from "@/admin/lib/menu/api";
+import {
+  parseRange,
+  type Overview as OverviewData,
+} from "@/admin/lib/overview";
+import QueryWrapper from "@/components/providers/query-wrapper";
+import { Overview } from "@/admin/components/overview/Overview";
 
 export function generateMetadata(): Metadata {
   const { brand } = getConfig();
-  return {
-    title: `${brand.name} | Admin Panel`,
-  };
+  return { title: `Overview | ${brand.name} Admin` };
 }
 
-const AdminHomePage: React.FC = async () => {
-  const user = await requireTeam();
-
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8 lg:py-10">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-        Hello, {user.firstName}
-      </h1>
-      <p className="mt-1 text-muted-foreground">
-        Here is what is happening at the restaurant today.
-      </p>
-    </div>
-  );
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default AdminHomePage;
+export default async function AdminOverviewPage({ searchParams }: Props) {
+  const user = await requireTeam();
+  const config = getConfig() as unknown as { locale?: { timeFormat?: string } };
+  const range = parseRange((await searchParams).range);
+  const result = await adminFetch<OverviewData>("/admin/overview", {
+    query: new URLSearchParams({ range: String(range) }),
+  });
+
+  return (
+    <QueryWrapper>
+      <Overview
+        initial={result.ok ? result.data : null}
+        loadError={result.ok ? null : result.message}
+        initialRange={range}
+        firstName={user.firstName}
+        timeFormat={config.locale?.timeFormat === "12h" ? "12h" : "24h"}
+      />
+    </QueryWrapper>
+  );
+}

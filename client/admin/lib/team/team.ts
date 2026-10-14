@@ -131,7 +131,7 @@ export const ROLE_INFO: Record<Role, RoleInfo> = {
   manager: {
     label: "Manager",
     article: "a manager",
-    tagline: "Edits the menu, events and website content.",
+    tagline: "Manages bookings, the menu, events and website content.",
     icon: Briefcase,
     badge: "bg-sky-500/12 text-sky-700 ring-sky-500/25 dark:text-sky-300",
     bubble: "bg-sky-500/12 text-sky-600 dark:text-sky-400",
@@ -140,7 +140,8 @@ export const ROLE_INFO: Record<Role, RoleInfo> = {
   staff: {
     label: "Staff",
     article: "staff",
-    tagline: "Runs service: bookings, orders, sold-out dishes.",
+    tagline:
+      "Runs service: sees bookings, moves orders, marks dishes sold out.",
     icon: ChefHat,
     badge:
       "bg-emerald-500/12 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300",
@@ -159,13 +160,60 @@ export const ROLE_INFO: Record<Role, RoleInfo> = {
 };
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
-  "menu:availability": "Mark dishes sold out",
+  "menu:availability": "Sold-out dishes",
   "menu:manage": "Edit the menu",
-  "reservations:manage": "Reservations",
+  "reservations:view": "See reservations",
+  "reservations:manage": "Manage reservations",
   "orders:manage": "Online orders",
-  "content:manage": "Events, gallery & pages",
+  "orders:edit": "Change orders & refunds",
+  "content:manage": "Gallery, events, pages & messages",
+  "analytics:view": "Sales & analytics",
   "users:manage": "Manage the team",
   "settings:manage": "Restaurant settings",
+};
+
+export const PERMISSION_DETAILS: Record<Permission, string[]> = {
+  "menu:availability": [
+    "Mark dishes sold out during service, and back in stock",
+  ],
+  "menu:manage": [
+    "Add, edit and delete dishes and categories",
+    "Set prices, photos, options and allergens",
+  ],
+  "reservations:view": [
+    "See the day's bookings, requests and guest details",
+    "Search every booking and a guest's history",
+  ],
+  "reservations:manage": [
+    "Confirm or decline booking requests (the guest gets an email)",
+    "Seat guests, finish tables, mark no-shows, cancel",
+    "Edit bookings, take phone bookings and walk-ins",
+  ],
+  "orders:manage": [
+    "See online orders as they arrive, with the new-order sound",
+    "Move orders along: accept, preparing, ready, done",
+    "Cancel unpaid orders, add team notes, print tickets",
+  ],
+  "orders:edit": [
+    "Change an order's dishes, prices and discounts",
+    "Cancel paid orders and refund cards",
+  ],
+  "content:manage": [
+    "Manage the gallery photos and albums",
+    "Edit events and page texts",
+    "Read and reply to guest messages from the contact page",
+  ],
+  "analytics:view": [
+    "See sales on the overview: revenue, orders and average order",
+    "Top dishes, how guests order and pay, and the busiest times",
+  ],
+  "users:manage": [
+    "Add people to the team and change their roles",
+    "Disable and enable team accounts",
+  ],
+  "settings:manage": [
+    "Change opening hours, special days and restaurant settings",
+  ],
 };
 
 export function roleHighlights(role: Role): Permission[] {

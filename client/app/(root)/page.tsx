@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import { getConfig } from "@/config/loader";
+import { pageMetadata } from "@/config/seo";
 import { heroSchema } from "@/components/home/schema";
 import { AboutSection } from "@/components/common/Index";
 import MenuPreview from "@/components/home/MenuPreview";
@@ -12,10 +13,11 @@ import HeroLayout from "@/components/home/HeroLayout";
 
 export function generateMetadata(): Metadata {
   const { pages } = getConfig();
-  return {
-    title: `${pages.home.seo.title}`,
+  return pageMetadata({
+    title: pages.home.seo.title,
     description: pages.home.seo.description,
-  };
+    path: "/",
+  });
 }
 
 const HomePage: React.FC = async () => {
@@ -54,11 +56,13 @@ const HomePage: React.FC = async () => {
             case "hoursLocation":
               return <Hours key={section.id} />;
             case "reservationCta":
-              if (config.features.reservations) {
-                return <ReservationCta key={section.id} section={section} />;
-              }
+              return config.features.reservations ? (
+                <ReservationCta key={section.id} section={section} />
+              ) : null;
             case "newsletter":
-              return <Newsletter key={section.id} section={section} />;
+              return config.features.newsletter ? (
+                <Newsletter key={section.id} section={section} />
+              ) : null;
             default:
               return null;
           }

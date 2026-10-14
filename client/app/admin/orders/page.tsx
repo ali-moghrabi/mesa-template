@@ -8,6 +8,7 @@ import { adminFetch } from "@/admin/lib/menu/api";
 import type { Board } from "@/admin/lib/orders";
 import { OrdersBoard } from "@/admin/components/orders/OrdersBoard";
 import QueryWrapper from "@/components/providers/query-wrapper";
+import { notFound } from "next/navigation";
 
 export function generateMetadata(): Metadata {
   const { brand } = getConfig();
@@ -34,6 +35,8 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
     typeof params.order === "string" && /^[0-9a-f]{24}$/i.test(params.order)
       ? params.order
       : null;
+
+  if (!config.features?.onlineOrdering) notFound();
 
   const [board, menu, hours] = await Promise.all([
     adminFetch<Board>("/admin/orders/board"),

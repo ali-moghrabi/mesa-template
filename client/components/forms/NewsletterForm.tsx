@@ -1,63 +1,261 @@
 "use client";
 
-import { useId } from "react";
-import { Mail } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useId, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  ArrowRight,
+  Loader2,
+  Mail,
+  MailCheck,
+  PartyPopper,
+  RotateCcw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { subscribeNewsletter } from "@/lib/actions/newsletter.actions";
+import {
+  newsletterSchema,
+  type NewsletterSource,
+  type NewsletterValues,
+} from "@/lib/newsletter";
 
 type Props = {
-  placeholder: string;
-  buttonLabel: string;
-  tone: "light" | "onPrimary";
+  tone?: "light" | "onPrimary";
+  placeholder?: string;
+  buttonLabel?: string;
+  privacyHref?: string;
+  source?: NewsletterSource;
   className?: string;
 };
 
+type Done = { status: "pending" | "already"; email: string };
+
 export function NewsletterForm({
-  placeholder,
-  buttonLabel,
-  tone,
+  tone = "light",
+  placeholder = "Your email address",
+  buttonLabel = "Subscribe",
+  privacyHref,
+  source = "website",
   className,
 }: Props) {
-  const inputId = useId();
+  const pathname = usePathname();
+  const form = useForm<NewsletterValues>({
+    resolver: zodResolver(newsletterSchema),
+    defaultValues: { email: "", website: "" },
+    mode: "onSubmit",
+  });
+  const [done, setDone] = useState<Done | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const sending = form.formState.isSubmitting;
+  const fieldError = form.formState.errors.email?.message;
   const onPrimary = tone === "onPrimary";
+  const errorId = useId();
+
+  const submit = async (values: NewsletterValues) => {
+    setError(null);
+    const result = await subscribeNewsletter(values, source, pathname);
+    if (result.ok)
+      setDone({ status: result.status, email: values.email.trim() });
+    else setError(result.message);
+  };
+
+  if (done) {
+    const already = done.status === "already";
+    const Icon = already ? PartyPopper : MailCheck;
+    return (
+      <div
+        role="status"
+        className={cn("animate-rise motion-reduce:animate-none", className)}
+      >
+        <div
+          className={cn(
+            "flex gap-4 rounded-[calc(var(--radius)*2)] border p-5",
+            onPrimary
+              ? "border-white/20 bg-white/10 text-white backdrop-blur"
+              : "border-border bg-card shadow-[0_20px_50px_-30px_rgba(0,0,0,.35)]",
+          )}
+        >
+          <span
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-2xl",
+              onPrimary ? "bg-white text-primary" : "bg-primary text-white",
+            )}
+          >
+            <Icon className="size-6" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-lg font-semibold tracking-tight">
+              {already ? "You're already on the list" : "Check your inbox"}
+            </p>
+            <p
+              className={cn(
+                "mt-1 text-sm leading-relaxed text-pretty",
+                onPrimary ? "text-white/80" : "text-foreground/65",
+              )}
+            >
+              {already ? (
+                <>
+                  <span
+                    className={cn(
+                      "font-medium break-all",
+                      onPrimary ? "text-white" : "text-foreground",
+                    )}
+                  >
+                    {done.email}
+                  </span>{" "}
+                  already gets our newsletter. See you in your inbox!
+                </>
+              ) : (
+                <>
+                  We sent a link to{" "}
+                  <span
+                    className={cn(
+                      "font-medium break-all",
+                      onPrimary ? "text-white" : "text-foreground",
+                    )}
+                  >
+                    {done.email}
+                  </span>
+                  . Click it to confirm and you&apos;re in. Can&apos;t see it?
+                  Check your spam folder.
+                </>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                form.reset({ email: "", website: "" });
+                setDone(null);
+              }}
+              className={cn(
+                "mt-3 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline",
+                onPrimary ? "text-white" : "text-primary",
+              )}
+            >
+              <RotateCcw className="size-3.5" /> Use another email
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const message = fieldError ?? error;
 
   return (
     <form
-      onSubmit={(e) => e.preventDefault()}
-      className={cn(
-        "flex w-full items-center gap-1.5 rounded-[calc(var(--radius)*1.6)] p-1.5 focus-within:ring-2",
-        onPrimary
-          ? "bg-background text-foreground focus-within:ring-white/70"
-          : "border border-foreground/20 bg-background focus-within:ring-primary/40",
-        className,
-      )}
+      onSubmit={form.handleSubmit(submit)}
+      noValidate
+      className={cn("w-full", className)}
     >
-      <label htmlFor={inputId} className="sr-only">
-        {placeholder}
-      </label>
-      <Mail
-        aria-hidden="true"
-        className="ml-3 size-5 shrink-0 text-foreground/50"
-      />
-      <input
-        id={inputId}
-        type="email"
-        name="email"
-        required
-        autoComplete="email"
-        placeholder={placeholder}
-        className="min-w-0 flex-1 bg-transparent px-2 py-3 text-base outline-none placeholder:text-foreground/50"
-      />
-      <button
-        type="submit"
+      <div
         className={cn(
-          "inline-flex min-h-12 shrink-0 items-center justify-center rounded-[calc(var(--radius)*1.1)] px-6 font-semibold transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent cursor-pointer hover:bg-primary/75",
+          "flex flex-col gap-2 rounded-[calc(var(--radius)*2)] p-1.5 transition min-[420px]:flex-row min-[420px]:items-center",
           onPrimary
-            ? "bg-foreground text-background"
-            : "bg-primary text-primary-foreground",
+            ? "bg-white/12 ring-1 ring-white/25 backdrop-blur focus-within:bg-white/18 focus-within:ring-white/60"
+            : "border border-foreground/12 bg-background shadow-[0_14px_40px_-28px_rgba(0,0,0,.4)] focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/15",
+          message &&
+            (onPrimary
+              ? "ring-white/80"
+              : "border-destructive focus-within:border-destructive focus-within:ring-destructive/15"),
         )}
       >
-        {buttonLabel}
-      </button>
+        <label className="flex min-w-0 flex-1 items-center gap-2.5 pl-3">
+          <Mail
+            className={cn(
+              "size-4.5 shrink-0",
+              onPrimary ? "text-white/70" : "text-foreground/40",
+            )}
+            aria-hidden="true"
+          />
+          <span className="sr-only">Email address</span>
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder={placeholder}
+            aria-invalid={!!message}
+            aria-describedby={message ? errorId : undefined}
+            disabled={sending}
+            {...form.register("email")}
+            className={cn(
+              "h-11 w-full min-w-0 bg-transparent text-[15px] outline-none",
+              onPrimary
+                ? "text-white placeholder:text-white/60"
+                : "placeholder:text-foreground/40",
+            )}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={sending}
+          className={cn(
+            "group inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-[calc(var(--radius)*1.5)] px-5 text-[15px] font-semibold transition disabled:opacity-70",
+            onPrimary
+              ? "bg-white text-primary hover:bg-white/90"
+              : "bg-primary text-white shadow-[0_10px_24px_-14px_var(--primary)] hover:brightness-110",
+          )}
+        >
+          {sending ? <Loader2 className="size-4 animate-spin" /> : null}
+          {sending ? "Subscribing…" : buttonLabel}
+          {!sending && (
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+          )}
+        </button>
+      </div>
+
+      <div
+        aria-hidden="true"
+        className="absolute left-[-9999px] h-px w-px overflow-hidden"
+      >
+        <label>
+          Website
+          <input
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            {...form.register("website")}
+          />
+        </label>
+      </div>
+
+      <p
+        id={errorId}
+        role={message ? "alert" : undefined}
+        className={cn(
+          "mt-2 min-h-5 pl-1 text-sm font-medium",
+          onPrimary ? "text-white" : "text-destructive",
+          !message && "sr-only",
+        )}
+      >
+        {message}
+      </p>
+      <p
+        className={cn(
+          "pl-1 text-xs leading-relaxed text-pretty",
+          onPrimary ? "text-white/65" : "text-foreground/55",
+        )}
+      >
+        A few emails a month, no spam. Unsubscribe in one click.
+        {privacyHref && (
+          <>
+            {" "}
+            See our{" "}
+            <Link
+              href={privacyHref}
+              className={cn(
+                "underline underline-offset-4",
+                onPrimary ? "hover:text-white" : "hover:text-foreground",
+              )}
+            >
+              privacy policy
+            </Link>
+            .
+          </>
+        )}
+      </p>
     </form>
   );
 }

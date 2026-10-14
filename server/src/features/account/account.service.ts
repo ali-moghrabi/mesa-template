@@ -11,6 +11,10 @@ import { formError } from 'lib/form-errors';
 import { Session, type SessionDocument } from 'src/schemas/session.schema';
 import { User, type UserDocument } from 'src/schemas/user.schema';
 import type { UpdateAccountDto } from './dto/account.dto';
+import {
+  EmailVerificationService,
+  type VerificationState,
+} from './email-verification.service';
 
 const PASSWORD_FIELD = 'password';
 const BCRYPT_ROUNDS = 12;
@@ -29,6 +33,7 @@ export type Account = {
   googleLinked: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
+  verification?: VerificationState;
 };
 
 type AccountRow = {
@@ -64,10 +69,14 @@ export class AccountService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Session.name)
     private readonly sessionModel: Model<SessionDocument>,
+    private readonly verification: EmailVerificationService,
   ) {}
 
   async get(userId: string): Promise<Account> {
-    return toAccount(await this.withPassword(userId));
+    const account = toAccount(await this.withPassword(userId));
+    if (account.isEmailVerified) return account;
+    const verification = await this.verification.state(userId);
+    return verification ? { ...account, verification } : account;
   }
 
   async update(userId: string, dto: UpdateAccountDto): Promise<Account> {
@@ -84,7 +93,7 @@ export class AccountService {
               $unset: { phone: 1 },
             },
         {
-          new: true,
+          returnDocument: 'after',
           projection: { ...FIELDS, [PASSWORD_FIELD]: 1, googleId: 1 },
           runValidators: true,
         },

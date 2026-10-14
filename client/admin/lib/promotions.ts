@@ -105,6 +105,11 @@ export function emptyPromotion(
 ): PromotionFormValues {
   const inAWeek = new Date(`${today}T12:00:00Z`);
   inAWeek.setUTCDate(inAWeek.getUTCDate() + 7);
+  // Typed as "maybe": a preset fills some fields, the defaults below cover the rest
+  const presetValues: Partial<PromotionFormValues> = preset
+    ? PRESETS[preset].values
+    : {};
+
   return {
     name: "",
     percentOff: 20,
@@ -122,7 +127,7 @@ export function emptyPromotion(
     onlyAtTimes: false,
     windows: [],
     isActive: true,
-    ...(preset ? PRESETS[preset].values : {}),
+    ...presetValues,
   };
 }
 

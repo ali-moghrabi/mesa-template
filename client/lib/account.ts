@@ -13,7 +13,22 @@ export type Account = {
   googleLinked: boolean;
   lastLoginAt?: string;
   createdAt: string;
+  verification?: VerificationState;
 };
+
+export type VerificationState = {
+  status: "sent" | "cooldown" | "verified";
+  sentTo?: string;
+  sentAt?: string;
+  resendAt?: string;
+};
+
+export type VerifyLinkInfo = { email: string; status: "pending" | "verified" };
+export type VerifyLinkResult =
+  | { ok: true; data: VerifyLinkInfo }
+  | { ok: false; message: string; gone: boolean };
+
+export const VERIFY_TOKEN_PATTERN = /^[0-9a-f]{64}$/;
 
 export const NAME_MAX = 50;
 export const PASSWORD_MIN = 8;

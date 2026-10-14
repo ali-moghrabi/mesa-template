@@ -639,10 +639,10 @@ export class OrdersService {
                 history: { status: 'placed', at: paidAt, note: 'Paid by card' },
               },
             },
-            { new: true },
+            { returnDocument: 'after' },
           )
           .lean<OrderRow>();
-        if (updated) await this.afterPlaced(updated); // only the call that flipped it
+        if (updated) await this.afterPlaced(updated);
         return;
       }
       case 'processing':
@@ -849,7 +849,7 @@ export class OrdersService {
       .findOneAndUpdate(
         { _id: 'orders' },
         { $inc: { seq: 1 } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       )
       .lean<Counter>();
     return String(FIRST_NUMBER + (counter?.seq ?? 1));

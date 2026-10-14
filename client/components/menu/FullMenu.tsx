@@ -1104,7 +1104,7 @@ function AddButton({
           : `Add ${dish.name} to your order`
       }
       className={cn(
-        "grid place-items-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_color-mix(in_srgb,var(--primary)_75%,transparent)] transition hover:scale-105 hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        "grid place-items-center rounded-full bg-primary text-white shadow-[0_8px_20px_-6px_color-mix(in_srgb,var(--primary)_75%,transparent)] transition hover:scale-105 hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
         large ? "size-11" : "size-10",
         className,
       )}
@@ -1480,7 +1480,6 @@ function DishSheet({
           </div>
         </div>
 
-        {/* Add to order */}
         {ordering && (
           <div className="border-t border-foreground/10 bg-background px-5 pt-3.5 pb-[max(env(safe-area-inset-bottom),0.875rem)] sm:px-7">
             {!dish.isAvailable ? (
@@ -1539,7 +1538,7 @@ function DishSheet({
                   }}
                   disabled={add.isPending}
                   aria-busy={add.isPending}
-                  className="flex h-12 flex-1 items-center justify-between gap-3 rounded-full bg-primary pr-5 pl-5 font-semibold text-primary-foreground shadow-[0_10px_24px_-10px_color-mix(in_srgb,var(--primary)_80%,transparent)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-80"
+                  className="flex h-12 flex-1 items-center justify-between gap-3 rounded-full bg-primary pr-5 pl-5 font-semibold text-white shadow-[0_10px_24px_-10px_color-mix(in_srgb,var(--primary)_80%,transparent)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-80"
                 >
                   <span className="inline-flex items-center gap-2">
                     {add.isPending ? (

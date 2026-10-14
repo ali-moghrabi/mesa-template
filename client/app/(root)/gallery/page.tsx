@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/config/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RotateCw, ImageOff } from "lucide-react";
@@ -46,12 +47,13 @@ function galleryPage() {
 
 export function generateMetadata(): Metadata {
   const { config, settings } = galleryPage();
-  return {
-    title: settings.seo?.title ?? `Gallery | ${config.brand.name}`,
+  return pageMetadata({
+    title: settings.seo?.title ?? `Gallery`,
     description:
       settings.seo?.description ??
       `Photos of the food, the room and the people at ${config.brand.name}.`,
-  };
+    path: "/gallery",
+  });
 }
 
 export default async function GalleryPage() {
@@ -62,7 +64,6 @@ export default async function GalleryPage() {
   const photos = result.ok ? result.photos : [];
 
   const top = headerProps.parse(header?.props ?? {});
-
   const image = top.image
     ? /^(https?:)?\//.test(top.image)
       ? top.image

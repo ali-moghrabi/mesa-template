@@ -156,7 +156,11 @@ export class GalleryService {
     if (!isValidObjectId(id))
       throw new NotFoundException('This photo no longer exists');
     const row = await this.photoModel
-      .findByIdAndUpdate(id, { $set: dto }, { new: true, runValidators: true })
+      .findByIdAndUpdate(
+        id,
+        { $set: dto },
+        { returnDocument: 'after', runValidators: true },
+      )
       .lean<Row>();
     if (!row) throw new NotFoundException('This photo no longer exists');
     return toAdmin(row);

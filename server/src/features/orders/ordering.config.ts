@@ -9,12 +9,16 @@ import {
   type OpeningHours,
 } from 'lib/opening-hours';
 import type { DeliveryArea, OrderingRules } from 'lib/ordering';
+import type { ReservationRules } from 'lib/reservations';
 import type { Env } from 'src/config/env';
 
 type Json = Record<string, unknown>;
 
 export type SiteSettings = {
   rules: OrderingRules;
+  reservations: ReservationRules;
+  contact: ContactSettings;
+  newsletter: { enabled: boolean };
   brandName: string;
   configHours: OpeningHours | null;
 };
@@ -49,6 +53,81 @@ export class OrderingConfig {
   rules(): OrderingRules {
     return this.settings().rules;
   }
+
+  reservationRules(): ReservationRules {
+    return this.settings().reservations;
+  }
+
+  contact(): ContactSettings {
+    return this.settings().contact;
+  }
+}
+
+export type ContactSettings = {
+  enabled: boolean;
+  subjects: string[];
+  recipient: string;
+};
+
+function contactSettings(config: Json): ContactSettings {
+  const pages = obj(config.pages);
+  let subjects: string[] = [];
+  for (const page of Object.values(pages)) {
+    const sections = obj(page).sections;
+    if (!Array.isArray(sections)) continue;
+    const contact = sections.map(obj).find((s) => s.type === 'contact');
+    const list = obj(contact?.props).subjects;
+    if (Array.isArray(list)) {
+      subjects = list
+        .map((x) => str(x))
+        .filter((x) => x && x.length <= 80)
+        .slice(0, 20);
+      break;
+    }
+  }
+  const recipient =
+    str(obj(obj(config.integrations).emailProvider).formsRecipient) ||
+    str(obj(config.business).email);
+  return {
+    enabled: obj(config.features).contactForm === true,
+    subjects,
+    recipient: /^[^\s@]+@[^\s@]+$/.test(recipient) ? recipient : '',
+  };
+}
+
+function reservationRules(config: Json, timezone: string): ReservationRules {
+  const page = obj(obj(config.pages).reservations);
+  const r = obj(obj(config.business).reservations);
+  const maxPartySize = Math.round(num(r.maxPartySize, 10, 1, 100));
+  const occasions = (Array.isArray(r.occasions) ? r.occasions : [])
+    .map((o) => str(o))
+    .filter((o) => o && o.length <= 40)
+    .slice(0, 12);
+  const cap = num(r.maxCoversPerSlot, 0, 0, 10_000);
+  return {
+    enabled:
+      obj(config.features).reservations === true && page.enabled === true,
+    timezone,
+    minPartySize: Math.min(
+      maxPartySize,
+      Math.round(num(r.minPartySize, 1, 1, 100)),
+    ),
+    maxPartySize,
+    slotMinutes: [15, 20, 30, 45, 60].includes(num(r.slotIntervalMinutes, 30))
+      ? num(r.slotIntervalMinutes, 30)
+      : 30,
+    advanceDays: Math.round(num(r.advanceDays, 30, 1, 365)),
+    minNoticeMinutes: Math.round(num(r.minNoticeHours, 2, 0, 72) * 60),
+    lastSeatingMinutes: Math.round(num(r.lastSeatingMinutes, 60, 0, 240)),
+    durationMinutes: Math.round(num(r.durationMinutes, 90, 15, 480)),
+    maxCoversPerSlot: cap > 0 ? Math.round(cap) : null,
+    requirePhone: bool(r.requirePhone, true),
+    allowSpecialRequests: bool(r.allowSpecialRequests, true),
+    occasions,
+    confirmationMessage:
+      str(r.confirmationMessage) ||
+      "Thanks! We've received your request and will confirm it by email shortly.",
+  };
 }
 
 export const PAYMENT_METHOD_IDS = ['cod', 'stripe'] as const;
@@ -181,6 +260,9 @@ function normalize(config: Json): SiteSettings {
   };
   return {
     rules,
+    reservations: reservationRules(config, timezone),
+    contact: contactSettings(config),
+    newsletter: { enabled: features.newsletter === true },
     brandName: str(obj(config.brand).name) || 'Our restaurant',
     configHours: Array.isArray(business.hours)
       ? fromLegacyConfig(legacy)

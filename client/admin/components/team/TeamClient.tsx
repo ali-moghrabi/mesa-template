@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * The team page's interactive pieces: search and status filter, the actions menu on each person,
+ * the confirmations (with what they gain or lose), and the "Add member" dialog.
+ * The page itself is a server component.
+ */
+
 import { useRouter } from "next/navigation";
 import {
   useEffect,
@@ -55,7 +61,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { ROLE_RANK, type Role } from "@/lib/auth/user-roles";
+import { ROLE_RANK, type Permission, type Role } from "@/lib/auth/user-roles";
 import {
   changeMemberRole,
   changeMemberStatus,
@@ -65,6 +71,7 @@ import {
   assignableTeamRoles,
   cleanTeamSearch,
   fullName,
+  PERMISSION_DETAILS,
   PERMISSION_LABELS,
   permissionDiff,
   ROLE_INFO,
@@ -522,14 +529,14 @@ function ConfirmChange({
               <PermissionList
                 tone="gain"
                 title="Gets access to"
-                items={diff.gains.map((p) => PERMISSION_LABELS[p])}
+                permissions={diff.gains}
               />
             )}
             {diff.loses.length > 0 && (
               <PermissionList
                 tone="lose"
                 title="Loses access to"
-                items={diff.loses.map((p) => PERMISSION_LABELS[p])}
+                permissions={diff.loses}
               />
             )}
           </div>
@@ -584,13 +591,14 @@ function ConfirmChange({
 function PermissionList({
   tone,
   title,
-  items,
+  permissions,
 }: {
   tone: "gain" | "lose";
   title: string;
-  items: string[];
+  permissions: Permission[];
 }) {
   const gain = tone === "gain";
+  const Sign = gain ? Plus : Minus;
   return (
     <div
       className={cn(
@@ -606,18 +614,33 @@ function PermissionList({
       >
         {title}
       </p>
-      <ul className="mt-1.5 flex flex-wrap gap-1.5">
-        {items.map((item) => (
+      <ul className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
+        {permissions.map((p) => (
           <li
-            key={item}
-            className="inline-flex items-center gap-1 rounded-md bg-card px-2 py-0.5 text-xs font-medium ring-1 ring-border"
+            key={p}
+            className="rounded-lg bg-card px-2.5 py-2 ring-1 ring-border"
           >
-            {gain ? (
-              <Plus className="size-3 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <Minus className="size-3 text-destructive" />
-            )}
-            {item}
+            <p className="flex items-center gap-1.5 text-xs font-semibold">
+              <Sign
+                className={cn(
+                  "size-3.5 shrink-0",
+                  gain
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-destructive",
+                )}
+              />
+              {PERMISSION_LABELS[p]}
+            </p>
+            <ul className="mt-1 space-y-0.5 pl-5">
+              {PERMISSION_DETAILS[p].map((line) => (
+                <li
+                  key={line}
+                  className="list-disc text-xs leading-relaxed text-muted-foreground marker:text-foreground/25"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
           </li>
         ))}
       </ul>

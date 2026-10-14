@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/config/seo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RotateCw, UtensilsCrossed } from "lucide-react";
@@ -50,12 +51,13 @@ function menuPage() {
 
 export function generateMetadata(): Metadata {
   const { config, settings } = menuPage();
-  return {
-    title: settings.seo?.title ?? `Menu | ${config.brand.name}`,
+  return pageMetadata({
+    title: settings.seo?.title ?? `Menu`,
     description:
       settings.seo?.description ??
       `The full menu at ${config.brand.name}: dishes, prices and dietary information.`,
-  };
+    path: "/menu",
+  });
 }
 
 export default async function MenuPage() {

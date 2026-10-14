@@ -24,6 +24,7 @@ import {
   ACCESS_TTL_SECONDS,
   REFRESH_TTL_SECONDS,
 } from 'lib/constants/authConstants';
+import { EmailVerificationService } from 'src/features/account/email-verification.service';
 
 export interface RequestMeta {
   userAgent?: string;
@@ -44,7 +45,6 @@ interface RefreshPayload {
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-/** "sara.haddad+food@gmail.com" → "sarahaddad": a starting point for a Google user's username */
 const usernameBase = (email: string) =>
   email
     .split('@')[0]
@@ -70,6 +70,7 @@ export class AuthService {
     @InjectModel(Session.name) private sessionModel: Model<SessionDocument>,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   async registerNewUser(registerUserDto: RegisterUserDto) {
@@ -87,14 +88,16 @@ export class AuthService {
 
     const hashed = await bcrypt.hash(password, 12);
 
+    let userId: Types.ObjectId;
     try {
-      await this.userModel.create({
+      const user = await this.userModel.create({
         firstName,
         lastName,
         username,
         email,
         password: hashed,
       });
+      userId = user._id;
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw new ConflictException('User already exists');
@@ -104,6 +107,14 @@ export class AuthService {
         'Failed to register user due to a server error',
       );
     }
+
+    this.emailVerification
+      .send(userId)
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Verification email after sign-up failed: ${(error as Error).message}`,
+        ),
+      );
   }
 
   async login(
@@ -147,21 +158,13 @@ export class AuthService {
     }
   }
 
-  /**
-   * Sign in with Google (the website's popup sends a one-time code).
-   *   1. The code is swapped with Google for an ID token (client secret, server only) and the
-   *      token is verified: signed by Google, issued for this app, not expired.
-   *   2. The account: already linked to this Google account, else the same verified email
-   *      (linked now), else a new customer account.
-   *   3. The same session and cookies as a password sign-in.
-   */
   async loginWithGoogle(
     code: string,
     meta: RequestMeta,
   ): Promise<Required<AuthTokens>> {
     const profile = await this.googleProfile(code);
     const email = normalizeEmail(profile.email ?? '');
-    // Linking by email is only safe when Google vouches for the address
+
     if (!email || profile.email_verified !== true) {
       throw new UnauthorizedException(
         'Your Google account has no verified email address',
@@ -191,7 +194,6 @@ export class AuthService {
     }
   }
 
-  /** Linked account → same email (linked now) → new account. Never returns null. */
   private async findOrCreateGoogleUser(
     googleId: string,
     email: string,
@@ -229,7 +231,6 @@ export class AuthService {
     return existing;
   }
 
-  /** The verified Google profile behind a one-time code */
   private async googleProfile(code: string): Promise<TokenPayload> {
     const clientId = this.config.get('GOOGLE_CLIENT_ID', { infer: true });
     const clientSecret = this.config.get('GOOGLE_CLIENT_SECRET', {
@@ -244,7 +245,6 @@ export class AuthService {
       );
     }
 
-    // "postmessage": the redirect URI Google uses for codes from a popup
     this.googleClient ??= new OAuth2Client({
       clientId,
       clientSecret,
@@ -283,7 +283,6 @@ export class AuthService {
     }
   }
 
-  /** A new customer from their Google profile: verified email, a free username, no password yet */
   private async createGoogleUser(
     profile: TokenPayload,
     email: string,
@@ -309,7 +308,6 @@ export class AuthService {
         attempt === 0 ? base : `${base}${randomInt(1000, 99999)}`;
       if (await this.userModel.exists({ username })) continue;
       try {
-        // A new document already has tokenVersion at its default (0)
         return await this.userModel.create({
           firstName,
           lastName,
@@ -320,7 +318,6 @@ export class AuthService {
           emailVerifiedAt: new Date(),
         });
       } catch (error) {
-        // Someone took the username (or this email signed up) a moment ago
         if (!isDuplicateKeyError(error)) throw error;
         const existing = await this.userModel
           .findOne({ email })

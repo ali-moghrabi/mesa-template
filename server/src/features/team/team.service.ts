@@ -220,7 +220,7 @@ export class TeamService {
       .findOneAndUpdate(
         { _id: target._id, role: target.role },
         { $set: { role } },
-        { new: true, projection: PUBLIC_FIELDS },
+        { returnDocument: 'after', projection: PUBLIC_FIELDS },
       )
       .lean<UserRow>();
     if (!updated) throw changedMeanwhile(target);
@@ -255,7 +255,7 @@ export class TeamService {
         isActive
           ? { $set: { isActive } }
           : { $set: { isActive }, $inc: { tokenVersion: 1 } },
-        { new: true, projection: PUBLIC_FIELDS },
+        { returnDocument: 'after', projection: PUBLIC_FIELDS },
       )
       .lean<UserRow>();
     if (!updated) throw new NotFoundException('This account no longer exists');

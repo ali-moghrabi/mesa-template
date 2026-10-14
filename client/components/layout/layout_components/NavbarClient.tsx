@@ -188,7 +188,7 @@ export function NavbarClient({
                   aria-current={isActive(l.href) ? "page" : undefined}
                   className={cn(
                     "relative py-1.5 text-[0.93rem] font-medium opacity-90 hover:opacity-100",
-                    "after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-300",
+                    "after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:origin-left after:scale-x-0 after:bg-primary after:transition-transform after:duration-300",
                     "hover:after:scale-x-100 aria-[current=page]:after:scale-x-100",
                     FOCUS,
                   )}

@@ -22,9 +22,11 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  MailCheck,
   MailWarning,
   MonitorSmartphone,
   Receipt,
+  RotateCw,
   ShieldAlert,
   Trash2,
   UserRound,
@@ -59,10 +61,12 @@ import {
   type DeleteValues,
   type PasswordValues,
   type ProfileValues,
+  type VerificationState,
 } from "@/lib/account";
 import {
   changePassword,
   deleteAccount,
+  sendVerificationEmail,
   signOutEverywhere,
   updateProfile,
 } from "@/lib/actions/account.actions";
@@ -462,7 +466,7 @@ function ProfileSection({ account }: { account: Account }) {
               <Button
                 type="submit"
                 disabled={!dirty || save.isPending}
-                className="min-w-32"
+                className="min-w-32 text-white"
               >
                 {save.isPending && (
                   <LoaderCircle className="size-4 animate-spin" />
@@ -572,8 +576,109 @@ function ProfileSection({ account }: { account: Account }) {
   );
 }
 
+const INBOXES: Record<string, { label: string; url: string }> = {
+  "gmail.com": { label: "Gmail", url: "https://mail.google.com" },
+  "googlemail.com": { label: "Gmail", url: "https://mail.google.com" },
+  "outlook.com": { label: "Outlook", url: "https://outlook.live.com/mail" },
+  "hotmail.com": { label: "Outlook", url: "https://outlook.live.com/mail" },
+  "live.com": { label: "Outlook", url: "https://outlook.live.com/mail" },
+  "yahoo.com": { label: "Yahoo Mail", url: "https://mail.yahoo.com" },
+  "icloud.com": { label: "iCloud Mail", url: "https://www.icloud.com/mail" },
+  "proton.me": { label: "Proton Mail", url: "https://mail.proton.me" },
+};
+
+const countdown = (ms: number) => {
+  const s = Math.ceil(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+
 function VerificationSection({ account }: { account: Account }) {
-  const [asked, setAsked] = useState(false);
+  const { syncSession, isSyncing } = useSessionRefresh();
+  const [sent, setSent] = useState<VerificationState | null>(
+    account.verification ?? null,
+  );
+  const [now, setNow] = useState(() => Date.now());
+  const resendAt = sent?.resendAt ? new Date(sent.resendAt).getTime() : 0;
+  const waitMs = Math.max(0, resendAt - now);
+  const inbox = INBOXES[account.email.split("@")[1]?.toLowerCase() ?? ""];
+
+  useEffect(() => {
+    if (resendAt <= Date.now()) return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (Date.now() >= resendAt) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendAt]);
+
+  const waiting = !account.isEmailVerified && sent !== null;
+  useEffect(() => {
+    if (!waiting) return;
+    const onFocus = () => void syncSession({ refetchUser: true });
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [waiting, syncSession]);
+
+  const [verifiedOnLoad] = useState(account.isEmailVerified);
+  useEffect(() => {
+    if (account.isEmailVerified && !verifiedOnLoad)
+      toast.add({
+        title: "Your email is verified",
+        description: "Thanks for confirming it.",
+        type: "success",
+      });
+  }, [account.isEmailVerified, verifiedOnLoad]);
+
+  const send = useMutation({
+    mutationFn: () => unwrap(sendVerificationEmail()),
+    onSuccess: (state) => {
+      setNow(Date.now());
+      if (state.status === "verified") {
+        void syncSession({ refetchUser: true });
+        return;
+      }
+      setSent(state);
+      if (state.status === "sent")
+        toast.add({
+          title: "Link sent",
+          description: `Check ${state.sentTo ?? "your inbox"}. It works for 24 hours.`,
+          type: "success",
+        });
+      else
+        toast.add({
+          title: "A link is already on its way",
+          description: "Give it a minute, and check your spam folder too.",
+        });
+    },
+    onError: (error) =>
+      toast.add({
+        title: "No email sent",
+        description: error.message,
+        type: "error",
+      }),
+  });
+
+  const sendButton = (label: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={send.isPending || waitMs > 0}
+      onClick={() => send.mutate()}
+      className="shrink-0 border-amber-600/30 bg-background tabular-nums"
+    >
+      {send.isPending ? (
+        <LoaderCircle className="size-4 animate-spin" />
+      ) : (
+        <RotateCw className="size-4" />
+      )}
+      {send.isPending
+        ? "Sending…"
+        : waitMs > 0
+          ? `${label} in ${countdown(waitMs)}`
+          : label}
+    </Button>
+  );
+
   return (
     <Section
       id="verification"
@@ -592,6 +697,63 @@ function VerificationSection({ account }: { account: Account }) {
             </p>
           </div>
         </div>
+      ) : sent ? (
+        <div className="overflow-hidden rounded-[calc(var(--radius,0.75rem)*1.3)] border border-primary/25 bg-primary/5">
+          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:p-5">
+            <span className="relative grid size-11 shrink-0 place-items-center rounded-full bg-primary/12 text-primary">
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 animate-ping rounded-full bg-primary/15 repeat-2 motion-reduce:hidden"
+              />
+              <MailCheck className="relative size-5" />
+            </span>
+            <div className="min-w-0 flex-1" role="status">
+              <p className="font-semibold">Check your inbox</p>
+              <p className="text-sm text-pretty text-foreground/65">
+                We sent a link to{" "}
+                <span className="font-medium break-all text-foreground">
+                  {account.email}
+                </span>
+                . Open it and press{" "}
+                <span className="font-medium text-foreground">
+                  Verify my email
+                </span>
+                . It works for 24 hours, on any device.
+              </p>
+              <p className="mt-2 text-xs text-foreground/50">
+                Nothing yet? Look in spam or promotions, or resend in a minute.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-primary/15 bg-background/60 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+            {inbox && (
+              <a
+                href={inbox.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Open {inbox.label} <ArrowUpRight className="size-4" />
+              </a>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isSyncing}
+              onClick={() => void syncSession({ refetchUser: true })}
+              className="justify-center"
+            >
+              {isSyncing ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4" />
+              )}
+              I&apos;ve verified it
+            </Button>
+            <span className="hidden flex-1 sm:block" />
+            {sendButton("Resend")}
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col gap-4 rounded-[calc(var(--radius,0.75rem)*1.3)] border border-amber-500/30 bg-amber-500/[0.07] p-4 sm:flex-row sm:items-center sm:p-5">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
@@ -601,29 +763,13 @@ function VerificationSection({ account }: { account: Account }) {
             <p className="font-semibold">Verify your email</p>
             <p className="text-sm text-pretty text-foreground/65">
               We&apos;ll send a link to{" "}
-              <span className="font-medium text-foreground">
+              <span className="font-medium break-all text-foreground">
                 {account.email}
               </span>
               . Open it to confirm the address is yours.
             </p>
-            {asked && (
-              <p
-                role="status"
-                className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-300"
-              >
-                Email verification is coming soon. You can keep using your
-                account meanwhile.
-              </p>
-            )}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setAsked(true)}
-            className="shrink-0 border-amber-600/30 bg-background"
-          >
-            Send verification link
-          </Button>
+          {sendButton("Send verification link")}
         </div>
       )}
     </Section>
@@ -713,7 +859,7 @@ function PasswordSection({
             <Button
               type="submit"
               disabled={save.isPending}
-              className="min-w-40 max-sm:w-full"
+              className="min-w-40 max-sm:w-full text-white"
             >
               {save.isPending && (
                 <LoaderCircle className="size-4 animate-spin" />

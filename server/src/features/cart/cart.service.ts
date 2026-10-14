@@ -141,7 +141,7 @@ export class CartService {
       .findOneAndUpdate(
         { userId: owner },
         { $setOnInsert: { lines: [] } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       )
       .lean<Cart>();
     const key = lineKey(dto.itemId, variantId, optionIds, note);

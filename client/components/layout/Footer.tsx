@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { CookieSettingsLink } from "@/components/consent/CookieConsent";
+import { NewsletterFooterLink } from "@/components/shared/NewsletterFooterLink";
 
 type FooterProps = {
   footer: {
@@ -6,10 +8,39 @@ type FooterProps = {
     copyright?: string | undefined;
     links?: { label: string; href: string }[] | undefined;
   };
+  newsletter?: boolean;
+  cookieSettings?: boolean;
 };
 
-export function Footer({ footer }: FooterProps) {
-  const { variant, copyright, links } = footer;
+const LINK =
+  "text-sm text-foreground/60 transition-colors hover:text-foreground";
+
+function Extras({
+  newsletter,
+  cookieSettings,
+  className,
+}: {
+  newsletter: boolean;
+  cookieSettings: boolean;
+  className?: string;
+}) {
+  if (!newsletter && !cookieSettings) return null;
+  return (
+    <span className={className}>
+      {cookieSettings && (
+        <CookieSettingsLink className="hover:text-foreground" />
+      )}
+      {newsletter && <NewsletterFooterLink className="hover:text-foreground" />}
+    </span>
+  );
+}
+
+export function Footer({
+  footer,
+  newsletter = false,
+  cookieSettings = false,
+}: FooterProps) {
+  const { variant, copyright, links = [] } = footer;
 
   if (variant === "centered") {
     return (
@@ -19,21 +50,22 @@ export function Footer({ footer }: FooterProps) {
             Mesa
           </Link>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-x-7 gap-y-3">
-            {!links || links.length === 0
-              ? null
-              : links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm text-foreground/60 transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-          </div>
+          {links.length > 0 && (
+            <nav className="mt-8 flex flex-wrap justify-center gap-x-7 gap-y-3">
+              {links.map((link) => (
+                <Link key={link.href} href={link.href} className={LINK}>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           <p className="mt-8 text-sm text-foreground/45">{copyright}</p>
+          <Extras
+            newsletter={newsletter}
+            cookieSettings={cookieSettings}
+            className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs text-foreground/45"
+          />
         </div>
       </footer>
     );
@@ -43,20 +75,21 @@ export function Footer({ footer }: FooterProps) {
     return (
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-8 min-[700px]:flex-row min-[700px]:items-center min-[700px]:justify-between">
-          <p className="text-sm text-foreground/50">{copyright}</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-foreground/50">{copyright}</p>
+            <Extras
+              newsletter={newsletter}
+              cookieSettings={cookieSettings}
+              className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-foreground/45"
+            />
+          </div>
 
           <nav className="flex flex-wrap gap-x-6 gap-y-2">
-            {!links || links.length === 0
-              ? null
-              : links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm text-foreground/60 transition-colors hover:text-foreground"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+            {links.map((link) => (
+              <Link key={link.href} href={link.href} className={LINK}>
+                {link.label}
+              </Link>
+            ))}
           </nav>
         </div>
       </footer>
@@ -81,30 +114,35 @@ export function Footer({ footer }: FooterProps) {
           </div>
 
           <div className="min-[700px]:justify-self-end">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground/40">
+            <p className="text-xs font-semibold tracking-[0.14em] text-foreground/40 uppercase">
               Explore
             </p>
 
             <nav className="mt-5 flex flex-col items-start gap-3">
-              {!links || links.length === 0
-                ? null
-                : links.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="group relative text-sm transition-colors"
-                    >
-                      <span className="transition-colors group-hover:text-primary">
-                        {link.label}
-                      </span>
-                    </Link>
-                  ))}
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="group relative text-sm transition-colors"
+                >
+                  <span className="transition-colors group-hover:text-primary">
+                    {link.label}
+                  </span>
+                </Link>
+              ))}
             </nav>
           </div>
         </div>
 
         <div className="mt-14 flex flex-col gap-4 border-t border-border pt-6 min-[700px]:mt-20 min-[700px]:flex-row min-[700px]:items-center min-[700px]:justify-between">
-          <p className="text-xs text-foreground/45">{copyright}</p>
+          <div className="flex flex-col gap-2 min-[700px]:flex-row min-[700px]:items-center min-[700px]:gap-5">
+            <p className="text-xs text-foreground/45">{copyright}</p>
+            <Extras
+              newsletter={newsletter}
+              cookieSettings={cookieSettings}
+              className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-foreground/45"
+            />
+          </div>
 
           <div className="flex items-center gap-2 text-xs text-foreground/40">
             <span className="size-1.5 rounded-full bg-primary" />

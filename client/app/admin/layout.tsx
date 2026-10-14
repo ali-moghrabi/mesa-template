@@ -10,6 +10,7 @@ import { buildAdminNav, SIDEBAR_COOKIE } from "@/admin/lib/nav";
 import { hasPermission } from "@/lib/auth/user-roles";
 import { OrderAlerts } from "@/admin/components/orders/OrderAlerts";
 import QueryWrapper from "@/components/providers/query-wrapper";
+import { adminFetch } from "@/admin/lib/menu/api";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -31,6 +32,17 @@ export default async function AdminLayout({
     pages: config.pages as Record<string, { enabled: boolean } | undefined>,
   });
 
+  const pending =
+    config.pages?.reservations?.enabled &&
+    hasPermission(user.role, "reservations:view")
+      ? await adminFetch<{ count: number }>("/admin/reservations/pending-count")
+      : null;
+
+  const unread =
+    config.features?.contactForm && hasPermission(user.role, "content:manage")
+      ? await adminFetch<{ count: number }>("/admin/messages/unread-count")
+      : null;
+
   return (
     <ThemeProvider
       attribute="class"
@@ -46,7 +58,12 @@ export default async function AdminLayout({
           groups={groups}
           business={{ hours: await getOpeningHours() }}
           initialCollapsed={collapsed}
-          counts={{}}
+          counts={{
+            ...(pending?.ok &&
+              pending.data.count > 0 && { reservations: pending.data.count }),
+            ...(unread?.ok &&
+              unread.data.count > 0 && { messages: unread.data.count }),
+          }}
         >
           {children}
           {config.features?.onlineOrdering &&
