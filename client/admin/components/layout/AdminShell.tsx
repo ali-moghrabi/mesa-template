@@ -37,6 +37,7 @@ import {
 } from "@/admin/lib/nav";
 import { ServiceStatus } from "../shared/ServiceStatus";
 import { useWaitingOrders } from "@/admin/components/orders/OrderAlerts";
+import { AdminGuide, GuideButton } from "@/admin/components/shared/AdminGuide";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
 const ICONS: Record<AdminIcon, LucideIcon> = {
@@ -169,7 +170,6 @@ export function AdminShell({
         <span className="truncate font-semibold">{brandName}</span>
       </header>
 
-      {/* mobile drawer */}
       <div
         aria-hidden="true"
         onClick={() => setMobileOpen(false)}
@@ -202,6 +202,8 @@ export function AdminShell({
       <main id="admin-main" className="min-w-0 flex-1">
         {children}
       </main>
+
+      <AdminGuide groups={groups} role={user.role} />
     </div>
   );
 }
@@ -304,6 +306,7 @@ function SidebarContent({
           compact && "flex flex-col items-center",
         )}
       >
+        <GuideButton compact={compact} />
         <div className={cn("flex items-center gap-1", compact && "flex-col")}>
           <Link
             href="/"
@@ -372,7 +375,6 @@ function NavLink({
       {badge && !compact && (
         <span
           className={cn(
-            // Its own colours, never inherited from the link (the active link is text-primary, which hid the number)
             "ml-auto min-w-5 rounded-full px-1.5 py-px text-center text-[11px] leading-4.5 font-bold tabular-nums",
             active
               ? "bg-primary text-white shadow-[0_0_0_2px_var(--color-sidebar,var(--background))]"
