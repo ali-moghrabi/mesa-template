@@ -15,7 +15,6 @@ import {
   History,
   Loader2,
   Mail,
-  MessageCircle,
   NotebookPen,
   Pencil,
   Phone,
@@ -73,6 +72,11 @@ import {
   saveReservationNote,
   updateReservation,
 } from "@/admin/lib/reservations.actions";
+import {
+  WhatsAppComposer,
+  useWhatsAppSettings,
+} from "@/components/whatsapp/Whatsapp";
+import { bookingTemplates } from "@/lib/whatsapp";
 
 export type Shared = {
   timeFormat: "12h" | "24h";
@@ -115,7 +119,7 @@ export function useMoveReservation(
     onSuccess: (detail, { status }) => {
       queryClient.setQueryData(reservationKey(detail.id), detail);
       void queryClient.invalidateQueries({ queryKey: RESERVATIONS_ROOT });
-      router.refresh(); // the sidebar's request count
+      router.refresh();
       toast.add({
         title: `${detail.name}: ${ADMIN_STATUS[status].label.toLowerCase()}`,
         type: "success",
@@ -170,6 +174,7 @@ export function ReservationPanel({
     <Sheet open={open !== null} onOpenChange={(o) => !o && close()}>
       <SheetContent
         side="right"
+        // shadcn's sheet caps the right side at max-w-sm: override both, firmly
         className="flex w-full! max-w-none! flex-col gap-0 p-0 data-[side=right]:w-full! sm:w-[min(640px,92vw)]! sm:max-w-[min(640px,92vw)]! data-[side=right]:sm:max-w-[min(640px,92vw)]!"
       >
         {creating ? (
@@ -264,6 +269,8 @@ export function ReservationPanel({
     </Sheet>
   );
 }
+
+/* ───────────── reading ───────────── */
 
 function PanelHeader({
   reservation: r,
@@ -412,6 +419,7 @@ function GuestCard({
   reservation: AdminReservationDetail;
 }) {
   const g = r.guest;
+  const { brandName } = useWhatsAppSettings();
   const digits = r.phone.replace(/[^\d]/g, "");
   return (
     <Card title="Guest" icon={<UserRound className="size-4" />}>
@@ -458,14 +466,19 @@ function GuestCard({
                 <PhoneCall className="size-3.5" /> Call
               </a>
               {digits.length >= 7 && (
-                <a
-                  href={`https://wa.me/${digits}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold transition-colors hover:bg-muted"
-                >
-                  <MessageCircle className="size-3.5" /> WhatsApp
-                </a>
+                <WhatsAppComposer
+                  phone={r.phone}
+                  title={`Message ${r.name.split(" ")[0]}`}
+                  description={`booking #${r.number}`}
+                  templates={bookingTemplates(brandName, {
+                    number: r.number,
+                    status: r.status,
+                    guest: r.name,
+                    date: r.date,
+                    time: r.time,
+                    partySize: r.partySize,
+                  })}
+                />
               )}
             </dd>
           </div>
@@ -641,6 +654,8 @@ function Timeline({
   );
 }
 
+/* ───────────── next steps ───────────── */
+
 function ActionBar({
   reservation: r,
   pending,
@@ -697,6 +712,7 @@ function ActionBar({
   );
 }
 
+/** Decline / cancel: a reason for the guest, and whether to email them */
 export function ReasonDialog({
   target,
   onClose,
@@ -803,6 +819,8 @@ export function ReasonDialog({
     </Dialog>
   );
 }
+
+/* ───────────── new booking / edit ───────────── */
 
 function Editor({
   mode,

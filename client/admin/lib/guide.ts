@@ -1,5 +1,5 @@
 import type { Permission } from "@/lib/auth/user-roles";
-import type { AdminIcon } from "./nav";
+import type { AdminIcon } from "@/admin/lib/nav";
 
 export type GuideSection = {
   heading: string;
@@ -173,6 +173,7 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
     tips: [
       "Add a note to a booking (allergies, a birthday, a favourite table) — only the team sees it.",
       "Changing a booking's time or size emails the guest the new details.",
+      "WhatsApp next to the guest's phone opens a ready message (confirmed, reminder, are you on your way?). Check it, then press Send in WhatsApp.",
     ],
     limited: {
       missing: "reservations:manage",
@@ -185,7 +186,7 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
     title: "Orders",
     summary: "Online orders for delivery and pickup, from new to done.",
     keywords:
-      "online order delivery pickup kitchen ticket print accept preparing ready refund cancel",
+      "online order delivery pickup kitchen ticket print accept preparing ready refund cancel whatsapp driver message",
     sections: [
       {
         heading: "What you'll find",
@@ -205,6 +206,15 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
         ],
       },
       {
+        heading: "Message the guest or the driver on WhatsApp",
+        steps: [
+          "Open the order and press WhatsApp next to the guest's phone.",
+          "Pick a message: Order confirmed, In the kitchen, On the way, Running late… It's filled in with the order number and time. Change it if you like.",
+          "Press Open WhatsApp, then Send. It goes from the phone or computer you're on.",
+          "For a delivery, Send to driver types the address, map link, phone and the amount to collect: choose the driver in WhatsApp.",
+        ],
+      },
+      {
         heading: "Something's not right",
         points: [
           "Print gives the kitchen a ticket.",
@@ -215,6 +225,7 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
     ],
     tips: [
       "Keep this page open on a tablet in the kitchen: new orders appear by themselves.",
+      "Orders guests send on WhatsApp from the menu (without an account) arrive in the restaurant's WhatsApp, not on this board.",
       "“Awaiting payment” means the guest hasn't finished paying yet. Wait before preparing it.",
     ],
     limited: {
@@ -277,6 +288,29 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
       missing: "menu:manage",
       note: "You can mark dishes sold out and back in stock. Editing dishes, prices and sales is for managers.",
     },
+  },
+
+  qr: {
+    id: "qr",
+    title: "QR codes",
+    summary: "Print codes for the tables, the counter or the window.",
+    keywords: "qr code table card sticker poster print scan menu",
+    sections: [
+      {
+        heading: "Print table cards",
+        steps: [
+          "Choose what the code opens: the menu, the website, booking a table, or another link.",
+          "Choose a style: Table card (4 per page), Sticker (9 per page) or Poster (one big code).",
+          "Change the headline if you like, and the table numbers (from 1 to 12, for example).",
+          "Press Print. Choose A4, scale 100% and “Background graphics”, then cut along the dotted lines.",
+        ],
+      },
+    ],
+    tips: [
+      "Scan one code with your phone before printing them all.",
+      "The code never changes: dishes and prices update on the website, so you don't reprint when the menu changes.",
+      "SVG downloads the code alone, sharp at any size, for a designer or a print shop.",
+    ],
   },
 
   gallery: {

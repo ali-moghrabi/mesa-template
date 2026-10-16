@@ -168,14 +168,14 @@ export function NavbarClient({
               alt={brandName}
               width={60}
               height={60}
-              className="size-10 dark:hidden rounded-full"
+              className="size-10 dark:hidden rounded-lg"
             />
             <Image
               src={`/${lightLogo}`}
               alt={brandName}
               width={60}
               height={60}
-              className="hidden size-10 dark:block rounded-full"
+              className="hidden size-10 dark:block rounded-lg"
             />
             <span className="hidden min-[900px]:block">{brandName}</span>
           </Link>

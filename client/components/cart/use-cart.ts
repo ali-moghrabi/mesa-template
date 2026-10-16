@@ -105,11 +105,21 @@ export function useCartChanges() {
 
 export function useAddToCart({
   onAdded,
-}: { onAdded?: (cart: Cart) => void } = {}) {
+  onSignedOut,
+}: {
+  onAdded?: (cart: Cart) => void;
+  onSignedOut?: (input: AddToCartInput & { name: string }) => boolean;
+} = {}) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: AddToCartInput & { name: string }) =>
-      unwrap(addToCart(input)),
+    mutationFn: ({
+      itemId,
+      variantId,
+      optionIds,
+      quantity,
+      note,
+    }: AddToCartInput & { name: string }) =>
+      unwrap(addToCart({ itemId, variantId, optionIds, quantity, note })),
     onSuccess: (cart, input) => {
       client.setQueryData(CART_KEY, cart);
       onAdded?.(cart);
@@ -118,8 +128,9 @@ export function useAddToCart({
         type: "success",
       });
     },
-    onError: (error) => {
+    onError: (error, input) => {
       if (error instanceof CartError && error.status === 401) {
+        if (onSignedOut?.(input)) return;
         requestSignIn();
         toast.add({
           title: "Sign in to order",

@@ -86,10 +86,13 @@ import {
   type EditLine,
 } from "@/admin/lib/orders";
 import type { Shared } from "./OrdersBoard";
+import {
+  WhatsAppComposer,
+  useWhatsAppSettings,
+} from "@/components/whatsapp/Whatsapp";
+import { driverMessage, orderTemplates, whatsappNumber } from "@/lib/whatsapp";
 
 export type TimeFormat = "12h" | "24h";
-
-/* ───────────── time helpers (shared with the board) ───────────── */
 
 const subscribe = (onChange: () => void) => {
   const id = setInterval(onChange, 15_000);
@@ -98,12 +101,10 @@ const subscribe = (onChange: () => void) => {
 const nowSnapshot = () => Math.floor(Date.now() / 15_000) * 15_000;
 const noNow = () => null;
 
-/** The time, refreshed every 15 seconds; null on the server (so nothing mismatches) */
 export function useNow(): number | null {
   return useSyncExternalStore(subscribe, nowSnapshot, noNow);
 }
 
-/** 42 s → "now", 7 min → "7 min", 95 min → "1 h 35" */
 export function elapsed(ms: number): string {
   const min = Math.max(0, Math.floor(ms / 60_000));
   if (min < 1) return "now";
@@ -114,7 +115,6 @@ export function elapsed(ms: number): string {
     : `${Math.floor(h / 24)} d`;
 }
 
-/** "19:35" (or "7:35 PM"), with the day when it isn't today */
 export function formatClock(
   iso: string,
   shared: Pick<Shared, "timezone" | "timeFormat">,
@@ -134,8 +134,6 @@ export function formatClock(
   if (day(date) === day(new Date())) return time;
   return `${new Intl.DateTimeFormat("en-GB", { timeZone: shared.timezone, day: "numeric", month: "short" }).format(date)}, ${time}`;
 }
-
-/* ───────────── the panel ───────────── */
 
 type Props = {
   orderId: string | null;
@@ -216,7 +214,6 @@ export function OrderPanel({
     <Sheet open={!!orderId} onOpenChange={(open) => !open && close()}>
       <SheetContent
         side="right"
-        // shadcn's sheet caps the right side at max-w-sm (384px) through data-[side=right]: override both, firmly
         className="flex w-full! max-w-none! flex-col gap-0 p-0 data-[side=right]:w-full! sm:w-[min(720px,92vw)]! sm:max-w-[min(720px,92vw)]! data-[side=right]:sm:max-w-[min(720px,92vw)]!"
       >
         {!data ? (
@@ -600,7 +597,13 @@ function Notice({
   );
 }
 
-function CustomerCard({ order }: { order: AdminOrder; shared: Shared }) {
+function CustomerCard({
+  order,
+  shared,
+}: {
+  order: AdminOrder;
+  shared: Shared;
+}) {
   const a = order.address;
   const line = a
     ? [
@@ -612,6 +615,20 @@ function CustomerCard({ order }: { order: AdminOrder; shared: Shared }) {
         .filter(Boolean)
         .join(", ")
     : "";
+  const { brandName, countryCode } = useWhatsAppSettings();
+  const guestChat = whatsappNumber(order.customer.phone, countryCode);
+  const money = (n: number) => formatMoney(n, shared.currency).main;
+  const s = order.schedule;
+  const when = s.asap
+    ? `${formatClock(s.from, shared)} – ${formatClock(s.to, shared)}`
+    : formatClock(s.from, shared, true);
+  const p = order.payment;
+  const toCollect =
+    p.method === "cash" ? order.amounts.total - (p.amountPaid ?? 0) : p.balance;
+  const payment =
+    toCollect > 0.004
+      ? `Collect ${money(toCollect)}${p.method === "cash" ? " cash" : ""}${p.method === "cash" && p.cashChangeFor ? ` (change for ${money(p.cashChangeFor)})` : ""}`
+      : "Paid by card: nothing to collect";
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text);
     toast.add({ title: "Copied", type: "success" });
@@ -626,6 +643,19 @@ function CustomerCard({ order }: { order: AdminOrder; shared: Shared }) {
         >
           <Phone className="size-4" /> {order.customer.phone}
         </a>
+        <WhatsAppComposer
+          phone={order.customer.phone}
+          title={`Message ${order.customer.name.split(" ")[0]}`}
+          description={`order #${order.number}`}
+          templates={orderTemplates(brandName, {
+            number: order.number,
+            status: order.status,
+            type: order.type,
+            guest: order.customer.name,
+            when,
+          })}
+          className="h-9 rounded-lg border-0 bg-muted px-3 text-sm font-medium hover:bg-muted/70"
+        />
         <a
           href={`mailto:${order.customer.email}`}
           className="inline-flex h-9 min-w-0 items-center gap-2 rounded-lg bg-muted px-3 text-sm font-medium hover:bg-muted/70"
@@ -652,7 +682,7 @@ function CustomerCard({ order }: { order: AdminOrder; shared: Shared }) {
               “{a.directions}”
             </p>
           )}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([line, a.area].filter(Boolean).join(", "))}`}
               target="_blank"
@@ -680,6 +710,30 @@ function CustomerCard({ order }: { order: AdminOrder; shared: Shared }) {
             >
               <Copy className="size-3.5" /> Copy for the driver
             </button>
+            <WhatsAppComposer
+              label="Send to driver"
+              title={`Delivery #${order.number} to a driver`}
+              templates={[
+                {
+                  id: "driver",
+                  label: "Delivery details",
+                  text: driverMessage({
+                    number: order.number,
+                    guest: order.customer.name,
+                    phone: guestChat ? `+${guestChat}` : order.customer.phone,
+                    chat: guestChat,
+                    address: line,
+                    area: a.area,
+                    directions: a.directions,
+                    payment,
+                    items: order.lines.map(
+                      (l) =>
+                        `${l.quantity} × ${l.name}${l.variantName ? ` (${l.variantName})` : ""}`,
+                    ),
+                  }),
+                },
+              ]}
+            />
           </div>
         </div>
       )}
@@ -1894,8 +1948,6 @@ function DishPicker({
   );
 }
 
-/* ───────────── kitchen ticket ───────────── */
-
 const esc = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -1905,7 +1957,6 @@ const esc = (s: string) =>
       ]!,
   );
 
-/** An 80 mm ticket, printed straight away from a hidden frame */
 function printTicket(order: AdminOrder, shared: Shared, brandName: string) {
   const money = (n: number) => formatMoney(n, shared.currency).main;
   const a = order.address;
@@ -1939,6 +1990,7 @@ function printTicket(order: AdminOrder, shared: Shared, brandName: string) {
     ${a ? `<div>${esc([a.street, a.building && `Bldg ${a.building}`, a.floor && `Fl ${a.floor}`, a.apartment && `Apt ${a.apartment}`].filter(Boolean).join(", "))}</div>${a.area ? `<div>${esc(a.area)}</div>` : ""}${a.directions ? `<div><i>${esc(a.directions)}</i></div>` : ""}` : ""}
     <hr><div class="c">${formatClock(order.placedAt ?? order.createdAt, shared, true)}</div>
   </body></html>`;
+
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.style.cssText =
@@ -1947,7 +1999,6 @@ function printTicket(order: AdminOrder, shared: Shared, brandName: string) {
   frame.onload = () => {
     frame.contentWindow?.focus();
     frame.contentWindow?.print();
-
     setTimeout(() => frame.remove(), 60_000);
   };
   document.body.appendChild(frame);

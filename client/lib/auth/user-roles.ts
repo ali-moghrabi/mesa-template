@@ -1,11 +1,3 @@
-/**
- * Roles are stored on the user. Permissions live here, in code.
- * Endpoints check a permission ("menu:manage"), never a role name, so changing what a role may do
- * is a one-line edit in this file, with no database migration.
- *
- * Copy this file to the website too (lib/auth/roles.ts): it decides what the admin panel shows.
- */
-
 export const ROLES = ["customer", "staff", "manager", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 

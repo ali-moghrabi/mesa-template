@@ -73,7 +73,7 @@
       }
     },
     "footer": {
-      "variant": "columns",
+      "variant": "centered",
       "copyright": "© 2026 Mesa Kitchen. All rights reserved.",
       "links": [
         {
@@ -570,7 +570,7 @@
     "phone": "+961 1 234 567",
     "email": "hello@mesakitchen.example",
     "whatsapp": {
-      "number": "+96171234567"
+      "number": "+96181046718"
     },
     "socials": [
       {
@@ -623,6 +623,7 @@
   "features": {
     "reservations": true,
     "onlineOrdering": true,
+    "whatsappOrdering": true,
     "delivery": true,
     "pickup": true,
     "newsletter": true,
@@ -670,7 +671,7 @@
       "lebanese food",
       "mar mikhael"
     ],
-    "siteUrl": "https://mesa-template.store",
+    "siteUrl": "https://www.mesa-template.store",
     "ogImage": "og.jpg",
     "ogImageAlt": "A table of Mediterranean dishes at Mesa Kitchen in Beirut",
     "twitterHandle": "@mesakitchen",
@@ -737,7 +738,6 @@
         "## Cookies",
         "Cookies are small files a website stores in your browser. We use as few as we can, in three groups:",
         "- **Necessary (always on):** keep you signed in, remember your cart and your cookie choice, and protect the site against abuse. The website can't work without them, so they don't need your permission.",
-        "- **Analytics (only if you accept):** tools such as Google Analytics count visits and show which pages are useful. We use this to improve the site, not to build a profile of you.",
         "- **Marketing (only if you accept):** tools such as the Meta Pixel measure how our ads perform on social media.",
         "We ask for your choice the first time you visit and remember it for 6 months. You can change it at any time with **Cookie settings** at the bottom of every page. When you turn a group off, we remove the cookies it left behind. You can also block or delete cookies in your browser's settings.",
         "## How long we keep it",

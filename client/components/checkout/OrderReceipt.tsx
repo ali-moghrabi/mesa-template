@@ -33,6 +33,7 @@ import {
   type OrderView,
 } from "@/lib/checkout";
 import { ReorderButton } from "@/components/account/OrdersList";
+import { OrderOnWhatsApp } from "@/components/whatsapp/Whatsapp";
 
 const POLL_MS = 3_000;
 const POLL_FOR_MS = 90_000;
@@ -44,6 +45,7 @@ type Props = {
   phone?: string;
   context?: "checkout" | "account";
   canReorder?: boolean;
+  whatsapp?: string;
 };
 
 export function OrderReceipt({
@@ -53,6 +55,7 @@ export function OrderReceipt({
   phone,
   context = "checkout",
   canReorder = false,
+  whatsapp,
 }: Props) {
   const inAccount = context === "account";
   const router = useRouter();
@@ -65,11 +68,13 @@ export function OrderReceipt({
     order.status === "awaiting_payment" && order.payment.status === "failed";
   const cancelled = order.status === "cancelled";
 
+  // The navbar's cart: the ordered dishes left it on the server
   useEffect(() => {
     if (!inAccount && !waiting && !failed)
       void queryClient.invalidateQueries({ queryKey: CART_KEY });
   }, [inAccount, waiting, failed, queryClient]);
 
+  // The bank is still deciding: ask again for a while; later, keep the kitchen's progress fresh
   useEffect(() => {
     if (failed || cancelled || order.status === "completed") return;
     const started = Date.now();
@@ -101,6 +106,7 @@ export function OrderReceipt({
     }).format(new Date(iso));
   const delivery = order.type === "delivery";
 
+  // In the account, a cancelled order still shows in full
   if (waiting || failed || (cancelled && !inAccount)) {
     return (
       <Shell>
@@ -201,6 +207,7 @@ export function OrderReceipt({
         </Link>
       )}
 
+      {/* Hero */}
       {inAccount ? (
         <AccountHero
           order={order}
@@ -254,8 +261,22 @@ export function OrderReceipt({
         </section>
       )}
 
+      {whatsapp && !cancelled && order.status !== "completed" && (
+        <OrderOnWhatsApp
+          number={whatsapp}
+          brandName={brandName}
+          order={{
+            number: order.number,
+            type: order.type,
+            total: total.main,
+            savings: a.savings > 0 ? money(a.savings).main : undefined,
+          }}
+        />
+      )}
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
         <div className="space-y-6">
+          {/* Progress */}
           <Card title="Order status">
             {cancelled ? (
               <p className="flex items-center gap-3 text-foreground/70">
@@ -287,7 +308,7 @@ export function OrderReceipt({
                         className={cn(
                           "relative grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold",
                           done
-                            ? "bg-primary text-white"
+                            ? "bg-primary text-primary-foreground"
                             : "bg-foreground/[0.07] text-foreground/40",
                           i === current && "ring-4 ring-primary/20",
                         )}
@@ -325,6 +346,7 @@ export function OrderReceipt({
             )}
           </Card>
 
+          {/* Details */}
           <div className="grid gap-4 sm:grid-cols-2">
             <Info
               icon={
@@ -431,6 +453,7 @@ export function OrderReceipt({
           </div>
         </div>
 
+        {/* Items and totals */}
         <Card
           title={`${order.lines.reduce((n, l) => n + l.quantity, 0)} items`}
         >
@@ -562,6 +585,7 @@ export function OrderReceipt({
   );
 }
 
+/** The top of an order seen from the account: its status, when, and the total */
 function AccountHero({
   order,
   eta,

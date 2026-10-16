@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * The admin guide: a panel that slides in from the right, opened from the sidebar's "Guide" button
- * or with the ? key. It opens on the page you're on ("Menu" when you're editing a dish), lists only
- * the pages your role can open, and can be searched ("sold out", "refund", "happy hour").
- *
- *   <AdminGuide groups={groups} role={user.role} />   once, in AdminShell
- *   <GuideButton compact={compact} />                 in the sidebar footer
- *   openGuide("menu")                                 from anywhere, e.g. a "How does this work?" link
- */
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -45,6 +35,7 @@ import {
   Sparkles,
   Users,
   X,
+  QrCode,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -120,6 +111,7 @@ const ICONS: Record<GuideTopic["id"], LucideIcon> = {
   reservations: CalendarDays,
   orders: Receipt,
   menu: ChefHat,
+  qr: QrCode,
   events: PartyPopper,
   gallery: Images,
   content: FileText,
@@ -314,6 +306,7 @@ export function AdminGuide({
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[240px_minmax(0,1fr)] md:grid-rows-1">
+          {/* topics */}
           <aside className="flex min-h-0 min-w-0 flex-col border-b border-border md:border-r md:border-b-0">
             <div className="p-3">
               <label htmlFor={searchId} className="sr-only">
@@ -516,6 +509,8 @@ export function AdminGuide({
     </>
   );
 }
+
+/* ───────────── pieces ───────────── */
 
 function groupBy(entries: Entry[]): [string, Entry[]][] {
   const groups = new Map<string, Entry[]>();

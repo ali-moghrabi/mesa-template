@@ -526,6 +526,7 @@ const features = obj({
   blog: z.boolean().default(false),
   darkModeToggle: z.boolean().default(true),
   onlineOrdering: flag,
+  whatsappOrdering: flag,
   delivery: flag,
   pickup: flag,
   giftCards: flag,

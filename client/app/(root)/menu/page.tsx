@@ -9,6 +9,11 @@ import { getOpeningHours } from "@/lib/opening-hours-server";
 import { getPublicMenu } from "@/lib/menu/public-menu";
 import { MenuPageHeader } from "@/components/menu/MenuPageHeader";
 import { FullMenu } from "@/components/menu/FullMenu";
+import {
+  WhatsAppOrder,
+  type WhatsAppOrderSettings,
+} from "@/components/whatsapp/WhatsAppOrder";
+import { whatsappNumber } from "@/lib/whatsapp";
 import QueryWrapper from "@/components/providers/query-wrapper";
 
 const sectionSchema = z.object({
@@ -102,6 +107,21 @@ export default async function MenuPage() {
 
   const categories = result.ok ? result.menu.categories : [];
 
+  const online = config.features?.onlineOrdering === true;
+  const waNumber = config.features?.whatsappOrdering
+    ? whatsappNumber(config.business.whatsapp?.number)
+    : null;
+  const whatsapp: WhatsAppOrderSettings | null = waNumber
+    ? {
+        number: waNumber,
+        brandName: config.brand.name,
+        currency: config.menu.currency,
+        online,
+        delivery: config.features.delivery === true,
+        pickup: config.features.pickup === true,
+      }
+    : null;
+
   return (
     <main className="min-h-svh bg-background text-foreground">
       <MenuPageHeader
@@ -114,19 +134,41 @@ export default async function MenuPage() {
       />
 
       {result.ok ? (
-        <QueryWrapper>
-          <FullMenu
-            categories={categories}
-            variant={variant}
-            options={options}
-            currency={config.menu.currency}
-            ordering={config.features?.onlineOrdering === true}
-            soldOut={
-              config.menu.unavailableItems === "hide" ? "hide" : "show-sold-out"
-            }
-            pricingNote={pricingNote}
-          />
-        </QueryWrapper>
+        whatsapp ? (
+          <QueryWrapper>
+            <WhatsAppOrder settings={whatsapp}>
+              <FullMenu
+                categories={categories}
+                variant={variant}
+                options={options}
+                currency={config.menu.currency}
+                ordering
+                soldOut={
+                  config.menu.unavailableItems === "hide"
+                    ? "hide"
+                    : "show-sold-out"
+                }
+                pricingNote={pricingNote}
+              />
+            </WhatsAppOrder>
+          </QueryWrapper>
+        ) : (
+          <QueryWrapper>
+            <FullMenu
+              categories={categories}
+              variant={variant}
+              options={options}
+              currency={config.menu.currency}
+              ordering={online}
+              soldOut={
+                config.menu.unavailableItems === "hide"
+                  ? "hide"
+                  : "show-sold-out"
+              }
+              pricingNote={pricingNote}
+            />
+          </QueryWrapper>
+        )
       ) : (
         <div className="px-(--pad) pt-10 pb-28 [--pad:clamp(1.1rem,4vw,3.5rem)]">
           <div className="mx-auto flex max-w-xl flex-col items-center rounded-[calc(var(--radius)*2)] border border-foreground/10 bg-muted px-6 py-14 text-center">

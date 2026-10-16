@@ -64,6 +64,11 @@ export default async function OrderCompletePage({
         currency={config.menu.currency}
         brandName={config.brand.name}
         phone={config.business?.phone}
+        whatsapp={
+          config.features?.whatsappOrdering
+            ? config.business?.whatsapp?.number
+            : undefined
+        }
       />
     </QueryWrapper>
   );

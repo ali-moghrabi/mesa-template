@@ -31,7 +31,7 @@ import type { Day } from "@/lib/opening-hours";
 import { canOptimize, mediaSrc } from "@/admin/lib/menu/format";
 import { formatMoney, type CurrencyConfig } from "@/lib/menu/money";
 import { flyToCart, MAX_LINE_NOTE, MAX_LINE_QUANTITY } from "@/lib/cart";
-import { useAddToCart } from "@/components/cart/use-cart";
+import { useMenuAdd } from "@/components/whatsapp/WhatsAppOrder";
 import type { PublicDish, PublicMenuCategory } from "@/lib/menu/public-menu";
 
 export type FullMenuVariant = "tabs" | "list" | "grid";
@@ -82,11 +82,6 @@ const BADGES: Record<string, string> = {
   limited: "Limited",
 };
 
-/**
- * Rows that scroll sideways on phones (categories, diet chips) fade out at both edges, so a cut-off
- * chip reads as "swipe for more" instead of "the page is broken". The fade sits in the side
- * padding, so the first and last chips are fully visible once scrolled to.
- */
 const SCROLL_ROW =
   "overflow-x-auto overscroll-x-contain scrollbar-none [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_var(--pad),black_calc(100%-var(--pad)),transparent)]";
 
@@ -153,7 +148,7 @@ export function FullMenu({
   const [diets, setDiets] = useState<ReadonlySet<string>>(new Set());
   const [openDish, setOpenDish] = useState<PublicDish | null>(null);
 
-  const adding = useAddToCart();
+  const adding = useMenuAdd();
   const addingId = adding.isPending ? adding.variables?.itemId : undefined;
   const quickAdd = (dish: PublicDish, button: HTMLElement) => {
     if (needsChoice(dish)) return setOpenDish(dish);
@@ -168,6 +163,7 @@ export function FullMenu({
         optionIds: defaultOptions(dish),
         quantity: 1,
         name: dish.name,
+        dish,
       },
       {
         onSuccess: () =>
@@ -778,8 +774,6 @@ function DishRow({
         </div>
         {src && (
           <div className="relative size-28 shrink-0 self-start overflow-hidden rounded-[calc(var(--radius,0.75rem)*1.1)] bg-foreground/5 sm:size-32">
-            {/* Twice the box: object-cover crops a landscape photo to this square, so it's drawn
-                wider than the box (a 4:3 photo in 128px needs ~170px), and 2× keeps it crisp */}
             <DishImage
               dish={dish}
               src={src}
@@ -1195,7 +1189,7 @@ function DishSheet({
   const [tried, setTried] = useState(false);
   const [note, setNote] = useState("");
   const photo = useRef<HTMLDivElement>(null);
-  const add = useAddToCart({ onAdded: onClose });
+  const add = useMenuAdd({ onAdded: onClose });
 
   const size = dish.variants.find((v) => v.id === sizeId);
   const base = size
@@ -1546,6 +1540,7 @@ function DishSheet({
                         quantity,
                         note: note.trim() || undefined,
                         name: dish.name,
+                        dish,
                       },
                       { onSuccess: () => flyToCart(from, src) },
                     );

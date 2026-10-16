@@ -24,6 +24,7 @@ import {
   Settings,
   Users,
   X,
+  QrCode,
   type LucideIcon,
 } from "lucide-react";
 import type { OpeningHours } from "@/lib/opening-hours";
@@ -35,9 +36,9 @@ import {
   type AdminIcon,
   type AdminNavGroup,
 } from "@/admin/lib/nav";
-import { ServiceStatus } from "../shared/ServiceStatus";
 import { useWaitingOrders } from "@/admin/components/orders/OrderAlerts";
 import { AdminGuide, GuideButton } from "@/admin/components/shared/AdminGuide";
+import { ServiceStatus } from "../shared/ServiceStatus";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
 const ICONS: Record<AdminIcon, LucideIcon> = {
@@ -45,6 +46,7 @@ const ICONS: Record<AdminIcon, LucideIcon> = {
   reservations: CalendarDays,
   orders: Receipt,
   menu: ChefHat,
+  qr: QrCode,
   events: PartyPopper,
   gallery: Images,
   content: FileText,

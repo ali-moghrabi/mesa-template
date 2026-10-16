@@ -9,6 +9,7 @@ export type AdminIcon =
   | "reservations"
   | "orders"
   | "menu"
+  | "qr"
   | "events"
   | "gallery"
   | "content"
@@ -72,7 +73,7 @@ const STRUCTURE: { id: string; label: string; items: ItemDefinition[] }[] = [
         label: "Reservations",
         href: "/admin/reservations",
         icon: "reservations",
-        anyOf: ["reservations:view", "reservations:manage"],
+        anyOf: ["reservations:manage"],
         when: page("reservations"),
       },
       {
@@ -96,6 +97,21 @@ const STRUCTURE: { id: string; label: string; items: ItemDefinition[] }[] = [
         icon: "menu",
         anyOf: ["menu:manage", "menu:availability"],
         when: page("menu"),
+      },
+      {
+        id: "qr",
+        label: "QR codes",
+        href: "/admin/qr",
+        icon: "qr",
+        anyOf: [
+          "menu:availability",
+          "reservations:view",
+          "orders:manage",
+          "menu:manage",
+          "content:manage",
+          "users:manage",
+          "settings:manage",
+        ],
       },
       {
         id: "events",
