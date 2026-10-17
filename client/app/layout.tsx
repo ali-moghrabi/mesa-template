@@ -6,6 +6,7 @@ import { Consent } from "@/components/consent/Consent";
 import { Toaster } from "@/components/ui/toast";
 import { rootMetadata, rootViewport } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
+import { DemoPromo } from "@/components/onboarding/DemoPromo";
 import "./globals.css";
 
 const font = DM_Sans({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </style>
       </head>
       <body>
+        <DemoPromo />
         <StructuredData />
         <ThemeProvider
           attribute="class"

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { CookieSettingsLink } from "@/components/consent/CookieConsent";
 import { NewsletterFooterLink } from "@/components/shared/NewsletterFooterLink";
 import { LiveStatus, type TimeFormat } from "@/components/home/HoursLive";
+import { MesaCredit } from "@/components/onboarding/DemoPromo";
 
 type FooterProps = {
   footer: {
@@ -127,7 +128,7 @@ export async function Footer({
 }: FooterProps) {
   const data = await footerData(footer);
   const bottom = (
-    <BottomBar
+    <BottomArea
       data={data}
       newsletter={newsletter}
       cookieSettings={cookieSettings}
@@ -174,6 +175,7 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
         )}
 
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_0.8fr] lg:gap-10">
+          {/* brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Brand data={data} className="text-2xl" />
             {data.tagline && (
@@ -191,6 +193,7 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
             <Socials socials={data.socials} className="mt-6" />
           </div>
 
+          {/* visit */}
           {hasVisit && (
             <Column title="Visit us">
               <address className="space-y-3.5 not-italic">
@@ -218,6 +221,7 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
             </Column>
           )}
 
+          {/* hours */}
           {data.weekly.length > 0 && (
             <Column title="Opening hours">
               <dl className="space-y-2.5 text-sm">
@@ -243,6 +247,7 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
             </Column>
           )}
 
+          {/* explore */}
           {data.pages.length > 0 && (
             <Column title="Explore">
               <nav
@@ -409,19 +414,12 @@ function Brand({ data, className }: { data: Data; className?: string }) {
           {/* eslint-disable-next-line @next/next/no-img-element -- SVG logos, no resizing needed */}
           <img
             src={light || dark}
-            alt="light logo"
-            className={cn(
-              "size-12 rounded-xl ring ring-primary/20",
-              dark && "dark:hidden",
-            )}
+            alt=""
+            className={cn("h-9 w-auto", dark && "dark:hidden")}
           />
           {dark && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={dark}
-              alt="dark logo"
-              className="hidden size-12 dark:block rounded-xl ring-primary/20"
-            />
+            <img src={dark} alt="" className="hidden h-9 w-auto dark:block" />
           )}
         </>
       ) : (
@@ -549,6 +547,23 @@ function BottomBar({
   );
 }
 
+/** The bottom bar, plus "Built with MESA" on the demo site only (ONBOARDING_ENABLED) */
+function BottomArea(props: {
+  data: Data;
+  newsletter: boolean;
+  cookieSettings: boolean;
+  centered?: boolean;
+}) {
+  return (
+    <>
+      <BottomBar {...props} />
+      <MesaCredit centered={props.centered} />
+    </>
+  );
+}
+
+/* ───────────── social links ───────────── */
+
 function Socials({
   socials,
   className,
@@ -592,6 +607,7 @@ const SOCIAL_NAMES: Record<string, string> = {
   google: "Google",
 };
 
+/** Simple line icons, drawn here: icon libraries no longer ship brand logos */
 function SocialIcon({ platform }: { platform: string }) {
   const common = {
     width: 18,

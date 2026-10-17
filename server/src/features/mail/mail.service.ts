@@ -10,6 +10,12 @@ import {
 } from './mail.config';
 import type { EmailContent } from './templates';
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+};
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -35,7 +41,12 @@ export class MailService {
     {
       replyTo,
       headers,
-    }: { replyTo?: string; headers?: Record<string, string> } = {},
+      attachments,
+    }: {
+      replyTo?: string;
+      headers?: Record<string, string>;
+      attachments?: MailAttachment[];
+    } = {},
   ): Promise<void> {
     const transport = this.transport();
     if (!transport) {
@@ -52,6 +63,7 @@ export class MailService {
       text: email.text,
       ...(replyTo && { replyTo }),
       ...(headers && { headers }),
+      ...(attachments?.length && { attachments }),
     });
     this.logger.log(
       `Sent "${email.subject}" to ${to.replace(/(^.).*(@.*$)/, '$1***$2')}`,

@@ -19,6 +19,7 @@ import { ReservationsModule } from './features/reservations/reservations.module'
 import { MessagesModule } from './features/messages/messages.module';
 import { OverviewModule } from './features/overview/overview.module';
 import { NewsletterModule } from './features/newsletter/newsletter.module';
+import { OnboardingModule } from './features/onboarding/onboarding.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { NewsletterModule } from './features/newsletter/newsletter.module';
     MessagesModule,
     OverviewModule,
     NewsletterModule,
+    OnboardingModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
   controllers: [AppController],
