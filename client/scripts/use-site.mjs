@@ -17,6 +17,12 @@ const fail = (message) => {
   process.exit(1);
 };
 
+if (!site && process.env.npm_lifecycle_event === "postinstall") {
+  console.log(
+    "[MESA] MESA_SITE not set yet: skipped during install (the build will check it)",
+  );
+  process.exit(0);
+}
 if (!site)
   fail(
     "MESA_SITE is not set. Add it in Vercel → Settings → Environment Variables (e.g. MESA_SITE=kebab-house).",
