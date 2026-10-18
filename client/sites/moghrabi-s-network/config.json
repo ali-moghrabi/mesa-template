@@ -73,7 +73,7 @@
       ]
     },
     "footer": {
-      "variant": "centered",
+      "variant": "columns",
       "copyright": "© {year} moghrabi's network. All rights reserved.",
       "links": [
         {
@@ -114,7 +114,7 @@
         {
           "id": "home-hero",
           "type": "hero",
-          "variant": "slider",
+          "variant": "fullscreen",
           "enabled": true,
           "props": {
             "title": "Good food is better shared",
