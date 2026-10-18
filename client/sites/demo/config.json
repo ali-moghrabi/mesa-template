@@ -1,0 +1,822 @@
+{
+  "id": "demo",
+  "version": 1,
+  "brand": {
+    "name": "Mesa Kitchen",
+    "tagline": "Seasonal food, shared tables",
+    "description": "A neighborhood restaurant serving modern Mediterranean dishes made from local ingredients.",
+    "monogram": "M",
+    "logo": {
+      "light": "assets/logo/logo-light.svg",
+      "dark": "assets/logo/logo-dark.svg"
+    },
+    "favicon": "favicon.ico",
+    "ogImage": "og.jpg"
+  },
+  "theme": {
+    "mode": "light",
+    "allowModeToggle": false,
+    "colors": {
+      "light": {
+        "primary": "#B4532A",
+        "secondary": "#2F3E34",
+        "accent": "#E0A458",
+        "background": "#FBF7F2",
+        "text": "#1F1B16",
+        "muted": "#6B6258",
+        "border": "#E8DFD3"
+      },
+      "dark": {
+        "primary": "#D9733F",
+        "secondary": "#8FA597",
+        "accent": "#E0A458",
+        "background": "#15120F",
+        "text": "#F5EFE6",
+        "muted": "#A39889",
+        "border": "#2E2822"
+      }
+    },
+    "radius": "soft",
+    "buttonStyle": "solid",
+    "shadow": "soft",
+    "density": "airy"
+  },
+  "layout": {
+    "navbar": {
+      "variant": "transparent",
+      "sticky": true,
+      "links": [
+        {
+          "label": "Home",
+          "href": "/"
+        },
+        {
+          "label": "Menu",
+          "href": "/menu"
+        },
+        {
+          "label": "About",
+          "href": "/about"
+        },
+        {
+          "label": "Gallery",
+          "href": "/gallery"
+        },
+        {
+          "label": "Contact",
+          "href": "/contact"
+        }
+      ],
+      "cta": {
+        "label": "Sign in",
+        "href": "/sign-in"
+      }
+    },
+    "footer": {
+      "variant": "centered",
+      "copyright": "© 2026 Mesa Kitchen. All rights reserved.",
+      "links": [
+        {
+          "label": "Privacy Policy",
+          "href": "/legal/privacy"
+        },
+        {
+          "label": "Terms of Service",
+          "href": "/legal/terms"
+        }
+      ]
+    },
+    "announcementBar": {
+      "enabled": true,
+      "text": "Live jazz. Reserve your table today.",
+      "link": {
+        "label": "Reserve",
+        "href": "/reservations"
+      },
+      "dismissible": true
+    },
+    "promoPopup": {
+      "enabled": false,
+      "title": "10% off your first online order",
+      "body": "Join our newsletter and get a welcome offer.",
+      "image": "images/popup.jpg",
+      "delaySeconds": 8
+    }
+  },
+  "pages": {
+    "home": {
+      "enabled": true,
+      "seo": {
+        "title": "Mesa Kitchen | Modern Mediterranean Restaurant",
+        "description": "Seasonal Mediterranean food, handmade daily. Book your table online."
+      },
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "variant": "slider",
+          "enabled": true,
+          "props": {
+            "title": "Good food is better shared",
+            "subtitle": "Seasonal plates, wood-fired breads and a table with your name on it.",
+            "image": "assets/home/hero.jpg",
+            "overlay": 0.25,
+            "slides": [
+              "assets/home/slide-1.jpg",
+              "assets/home/slide-2.jpg",
+              "assets/home/slide-3.jpg"
+            ],
+            "interval": 15000,
+            "video": "assets/home/hero-video.mp4",
+            "videoWebm": "assets/home/hero-video.webm",
+            "poster": "assets/home/video-poster.jpg",
+            "booking": true,
+            "primaryCta": {
+              "label": "Book a table",
+              "href": "/reservations"
+            },
+            "secondaryCta": {
+              "label": "View menu",
+              "href": "/menu"
+            }
+          }
+        },
+        {
+          "id": "home-about",
+          "type": "about",
+          "variant": "split",
+          "enabled": true,
+          "props": {
+            "source": "content.about",
+            "imagePosition": "start"
+          }
+        },
+        {
+          "id": "home-featured",
+          "type": "menuPreview",
+          "variant": "grid",
+          "enabled": true,
+          "props": {
+            "title": "Chef's favorites",
+            "subtitle": "The dishes our guests keep coming back for.",
+            "itemIds": [
+              "burrata-salad",
+              "lamb-shoulder",
+              "wild-mushroom-risotto",
+              "basque-cheesecake"
+            ],
+            "cta": {
+              "label": "See full menu",
+              "href": "/menu"
+            }
+          }
+        },
+        {
+          "id": "home-stats",
+          "type": "stats",
+          "variant": "inline",
+          "enabled": true,
+          "props": {
+            "source": "content.stats"
+          }
+        },
+        {
+          "id": "home-hours",
+          "type": "hoursLocation",
+          "variant": "map",
+          "enabled": true,
+          "props": {
+            "title": "Visit us",
+            "showMap": true,
+            "showOpenNow": true
+          }
+        },
+        {
+          "id": "home-reserve",
+          "type": "reservationCta",
+          "variant": "banner",
+          "enabled": true,
+          "props": {
+            "title": "Your table is waiting",
+            "subtitle": "Reservations open up to 30 days in advance.",
+            "image": "assets/home/reservation-cta.jpg",
+            "cta": {
+              "label": "Reserve now",
+              "href": "/reservations"
+            }
+          }
+        },
+        {
+          "id": "home-newsletter",
+          "type": "newsletter",
+          "variant": "split",
+          "enabled": true,
+          "props": {
+            "title": "Stay in the loop",
+            "subtitle": "Seasonal menus, events and offers. No spam.",
+            "image": "assets/home/newsletter.jpg"
+          }
+        }
+      ]
+    },
+    "menu": {
+      "enabled": true,
+      "seo": {
+        "title": "Menu | Mesa Kitchen",
+        "description": "Explore our starters, mains, desserts and drinks."
+      },
+      "sections": [
+        {
+          "id": "menu-header",
+          "type": "pageHeader",
+          "variant": "image",
+          "enabled": true,
+          "props": {
+            "title": "Our Menu",
+            "subtitle": "Made fresh daily from local ingredients.",
+            "image": "assets/menu/menu-header.jpg"
+          }
+        },
+        {
+          "id": "menu-full",
+          "type": "fullMenu",
+          "variant": "tabs",
+          "enabled": true,
+          "props": {
+            "showImages": true,
+            "showSearch": true,
+            "showFilters": true,
+            "showAllergens": true
+          }
+        }
+      ]
+    },
+    "about": {
+      "enabled": true,
+      "seo": {
+        "title": "Our Story | Mesa Kitchen",
+        "description": "Meet the people and the story behind Mesa Kitchen."
+      },
+      "sections": [
+        {
+          "id": "about-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Our Story",
+            "subtitle": "Since 2012",
+            "image": "assets/about/about-header.jpg"
+          }
+        },
+        {
+          "id": "about-story",
+          "type": "about",
+          "variant": "split",
+          "enabled": true,
+          "props": {
+            "source": "content.about",
+            "imagePosition": "end"
+          }
+        },
+        {
+          "id": "about-team",
+          "type": "team",
+          "variant": "grid",
+          "enabled": true,
+          "props": {
+            "title": "The people behind the plates",
+            "source": "content.team"
+          }
+        },
+        {
+          "id": "about-faq",
+          "type": "faq",
+          "variant": "accordion",
+          "enabled": true,
+          "props": {
+            "title": "Good to know",
+            "source": "content.faqs"
+          }
+        }
+      ]
+    },
+    "gallery": {
+      "enabled": true,
+      "seo": {
+        "title": "Gallery | Mesa Kitchen",
+        "description": "A look inside our dining room, kitchen and dishes."
+      },
+      "sections": [
+        {
+          "id": "gallery-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Gallery",
+            "subtitle": "A taste of the atmosphere."
+          }
+        },
+        {
+          "id": "gallery-grid",
+          "type": "gallery",
+          "variant": "masonry",
+          "enabled": true,
+          "props": {
+            "lightbox": true,
+            "showFilters": true
+          }
+        }
+      ]
+    },
+    "contact": {
+      "enabled": true,
+      "seo": {
+        "title": "Contact & Location | Mesa Kitchen",
+        "description": "Find us, call us or send a message."
+      },
+      "sections": [
+        {
+          "id": "contact-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Contact",
+            "subtitle": "We would love to hear from you."
+          }
+        },
+        {
+          "id": "contact-hours",
+          "type": "hoursLocation",
+          "variant": "map",
+          "enabled": true,
+          "props": {
+            "title": "Find us",
+            "showMap": true,
+            "showOpenNow": true
+          }
+        },
+        {
+          "id": "contact-form",
+          "type": "contact",
+          "variant": "split",
+          "enabled": true,
+          "props": {
+            "title": "Send us a message",
+            "subjects": [
+              "General question",
+              "Private event",
+              "Feedback",
+              "Press"
+            ]
+          }
+        }
+      ]
+    },
+    "reservations": {
+      "enabled": true,
+      "seo": {
+        "title": "Reserve a Table | Mesa Kitchen",
+        "description": "Book your table online in under a minute."
+      },
+      "sections": [
+        {
+          "id": "res-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Reserve a Table",
+            "subtitle": "For parties larger than 4, please call us."
+          }
+        },
+        {
+          "id": "res-form",
+          "type": "reservationForm",
+          "variant": "inline",
+          "enabled": true,
+          "props": {}
+        }
+      ]
+    },
+    "events": {
+      "enabled": true,
+      "seo": {
+        "title": "Events | Mesa Kitchen",
+        "description": "Live music, tasting dinners and private events."
+      },
+      "sections": [
+        {
+          "id": "events-header",
+          "type": "pageHeader",
+          "variant": "simple",
+          "enabled": true,
+          "props": {
+            "title": "Events & Offers",
+            "subtitle": "There is always something happening."
+          }
+        },
+        {
+          "id": "events-list",
+          "type": "events",
+          "variant": "cards",
+          "enabled": true,
+          "props": {
+            "source": "content.events"
+          }
+        }
+      ]
+    },
+    "blog": {
+      "enabled": false,
+      "seo": {
+        "title": "Journal | Mesa Kitchen",
+        "description": "News and stories from our kitchen."
+      },
+      "sections": []
+    }
+  },
+  "content": {
+    "about": {
+      "eyebrow": "Our story",
+      "title": "A small kitchen with a big table",
+      "body": [
+        "Mesa started in 2012 as a twelve-seat kitchen with one idea: food tastes better when it is shared.",
+        "Today we still cook the same way. We buy from farms within 80 km, bake bread every morning and change the menu with the seasons."
+      ],
+      "image": "assets/about/about.jpg",
+      "highlights": [
+        {
+          "icon": "leaf",
+          "title": "Local produce",
+          "text": "Sourced from farms within 80 km."
+        },
+        {
+          "icon": "flame",
+          "title": "Wood-fired",
+          "text": "Breads and mains cooked over open flame."
+        },
+        {
+          "icon": "heart",
+          "title": "Made by hand",
+          "text": "Pasta, bread and desserts made in house daily."
+        }
+      ],
+      "cta": {
+        "label": "Read our story",
+        "href": "/about"
+      }
+    },
+    "team": [
+      {
+        "name": "Rita Haddad",
+        "role": "Chef & founder",
+        "bio": "Opened Mesa with twelve seats and a wood oven.",
+        "image": "assets/team/rita.jpg"
+      },
+      {
+        "name": "Karim Nassar",
+        "role": "Head chef",
+        "bio": "Grew up in his grandmother's kitchen. Runs the fire.",
+        "image": "assets/team/karim.jpg"
+      },
+      {
+        "name": "Lina Khoury",
+        "role": "Pastry chef",
+        "bio": "The Basque cheesecake is hers.",
+        "links": [
+          {
+            "label": "Instagram",
+            "url": "https://instagram.com/..."
+          }
+        ]
+      }
+    ],
+    "stats": [
+      {
+        "value": "12+",
+        "label": "Years serving"
+      },
+      {
+        "value": "40",
+        "label": "Local suppliers"
+      },
+      {
+        "value": "4.8",
+        "label": "Average rating"
+      },
+      {
+        "value": "2",
+        "label": "Industry awards"
+      }
+    ],
+    "faqs": [
+      {
+        "question": "Do I need a reservation?",
+        "answer": "Walk-ins are welcome, but we recommend booking, especially Thursday to Saturday."
+      },
+      {
+        "question": "Do you have vegetarian and vegan options?",
+        "answer": "Yes. Dishes are labeled on the menu and our team can adapt many others."
+      },
+      {
+        "question": "Can I host a private event?",
+        "answer": "Our private room seats up to 24 guests. Send us a message from the contact page."
+      },
+      {
+        "question": "Is the restaurant wheelchair accessible?",
+        "answer": "Yes, the dining room, terrace and restrooms are fully step-free."
+      }
+    ]
+  },
+  "menu": {
+    "currency": {
+      "primary": {
+        "enabled": true,
+        "code": "USD"
+      },
+      "secondary": {
+        "enabled": true,
+        "code": "LBP",
+        "rate": 89500,
+        "roundTo": 1000
+      }
+    },
+    "pricing": {
+      "taxIncluded": false,
+      "vatRate": 0.11,
+      "note": "Prices exclude 11% VAT."
+    },
+    "unavailableItems": "show-sold-out"
+  },
+  "business": {
+    "legalName": "Mesa Kitchen LLC",
+    "cuisine": ["Mediterranean", "Wood-fired", "Seasonal"],
+    "priceRange": "$$",
+    "address": {
+      "street": "24 Olive Street",
+      "city": "Beirut",
+      "region": "Beirut Governorate",
+      "postalCode": "1107",
+      "country": "Lebanon"
+    },
+    "geo": {
+      "lat": 33.8938,
+      "lng": 35.5018
+    },
+    "mapEmbedUrl": "https://www.google.com/maps/embed?pb=PLACEHOLDER",
+    "phone": "+961 1 234 567",
+    "email": "hello@mesakitchen.example",
+    "whatsapp": {
+      "number": "+96181046718"
+    },
+    "socials": [
+      {
+        "platform": "instagram",
+        "url": "https://instagram.com/mesakitchen",
+        "handle": "@mesakitchen"
+      },
+      {
+        "platform": "facebook",
+        "url": "https://facebook.com/mesakitchen"
+      }
+    ],
+    "timezone": "Asia/Beirut",
+    "specialHours": [
+      {
+        "date": "2026-12-24",
+        "label": "Christmas Eve",
+        "open": "12:00",
+        "close": "17:00"
+      },
+      {
+        "date": "2026-12-25",
+        "label": "Christmas Day",
+        "closed": true
+      },
+      {
+        "date": "2026-12-31",
+        "label": "New Year's Eve",
+        "open": "18:00",
+        "close": "02:00"
+      }
+    ],
+    "reservations": {
+      "minPartySize": 1,
+      "maxPartySize": 4,
+      "slotIntervalMinutes": 30,
+      "advanceDays": 30,
+      "minNoticeHours": 2,
+      "requirePhone": true,
+      "occasions": [
+        "Birthday",
+        "Anniversary",
+        "Business",
+        "Date night",
+        "Other"
+      ],
+      "confirmationMessage": "Thank you! We have received your request and will confirm by email shortly."
+    }
+  },
+  "features": {
+    "reservations": true,
+    "onlineOrdering": true,
+    "whatsappOrdering": true,
+    "delivery": true,
+    "pickup": true,
+    "newsletter": true,
+    "contactForm": true,
+    "blog": false,
+    "events": true,
+    "giftCards": false,
+    "whatsappButton": true,
+    "instagramFeed": false,
+    "cookieBanner": true,
+    "darkModeToggle": true
+  },
+  "ordering": {
+    "payments": {
+      "methods": ["cod", "stripe", "whish"]
+    },
+    "delivery": {
+      "fee": 3,
+      "freeOver": 40,
+      "minimumOrder": 10,
+      "etaMinutes": [35, 50],
+      "areas": []
+    },
+    "pickup": {
+      "etaMinutes": [15, 25]
+    },
+    "scheduling": {
+      "enabled": true,
+      "daysAhead": 2,
+      "slotMinutes": 15
+    },
+    "tips": [5, 10, 15]
+  },
+  "seo": {
+    "siteName": "Mesa Kitchen",
+    "titleTemplate": "%s | Mesa Kitchen",
+    "defaultTitle": "Mesa Kitchen | Modern Mediterranean Restaurant",
+    "defaultDescription": "Seasonal Mediterranean food, handmade daily. Book your table online.",
+    "keywords": [
+      "restaurant",
+      "mediterranean",
+      "wood-fired",
+      "beirut",
+      "reservations",
+      "lebanese food",
+      "mar mikhael"
+    ],
+    "siteUrl": "https://www.mesa-template.store",
+    "ogImage": "og.jpg",
+    "ogImageAlt": "A table of Mediterranean dishes at Mesa Kitchen in Beirut",
+    "twitterHandle": "@mesakitchen",
+    "locale": "en_US",
+    "noindex": false,
+    "verification": {},
+    "structuredData": {
+      "type": "Restaurant",
+      "servesCuisine": ["Mediterranean", "Lebanese"],
+      "acceptsReservations": true
+    }
+  },
+  "locale": {
+    "language": "en",
+    "direction": "ltr",
+    "dateFormat": "MMM d, yyyy",
+    "timeFormat": "24h"
+  },
+  "integrations": {
+    "googleAnalyticsId": "",
+    "metaPixelId": "",
+    "googleTagManagerId": "",
+    "customDomain": "",
+    "emailProvider": {
+      "newsletter": "none",
+      "formsRecipient": "amoghrabi168@gmail.com"
+    }
+  },
+  "legal": {
+    "privacy": {
+      "title": "Privacy Policy",
+      "updated": "2026-10-14",
+      "body": [
+        "This policy explains what personal information {legalName} (\"{brand}\", \"we\", \"us\") collects when you visit {website}, book a table, order food or write to us, why we collect it, and the choices you have. We keep it short and plain on purpose.",
+        "## Who we are",
+        "{brand} is a restaurant run by {legalName}, located at {address}. We are responsible for the personal information described here. You can reach us at any time at [{email}](mailto:{email}) or {phone}.",
+        "## What we collect",
+        "We only ask for what we need to look after you:",
+        "- **Account details:** your name, email address, phone number and password (stored encrypted, never in plain text). If you sign in with Google, we receive your name and email from Google.",
+        "- **Bookings:** the date, time and size of your party, the occasion and any note you add, such as allergies or a high chair.",
+        "- **Orders:** the dishes you order, your delivery address and directions, your phone number, the payment method you chose and the order history.",
+        "- **Messages:** what you send us through the contact form, including your name, email and, if you give it, your phone number.",
+        "- **Technical information:** your IP address, browser type and basic usage data, used to keep the website secure and working.",
+        "We do not collect payment card numbers. Card payments are handled directly by our payment provider (see below).",
+        "## How we use it",
+        "- To manage your account and keep it secure.",
+        "- To take, confirm, change and remind you about your bookings.",
+        "- To prepare, deliver and support your orders, including refunds.",
+        "- To answer your messages and questions.",
+        "- To send you our newsletter, **only if you subscribed**. Every newsletter has an unsubscribe link.",
+        "- To protect our website and our guests against fraud and abuse, for example by limiting repeated requests.",
+        "- To meet our legal and accounting obligations.",
+        "We never sell your personal information, and we do not use it for advertising profiles.",
+        "## Why we are allowed to use it",
+        "We use your information because we need it to give you what you asked for (a table, an order, an answer), because you agreed (the newsletter), because we have a legitimate interest in running a safe and well-organised restaurant, or because the law requires it (for example, keeping invoices).",
+        "## Who we share it with",
+        "We share information only with the trusted services that help us run {brand}, and only what they need:",
+        "- **Payments:** card payments are processed by Stripe, which receives your card details directly. We only see the card brand, the last four digits and whether the payment succeeded.",
+        "- **Email:** our email provider sends booking confirmations, order receipts and replies on our behalf.",
+        "- **Hosting:** our website and database are hosted by cloud providers that store data securely on our behalf.",
+        "- **Sign-in with Google:** if you choose it, Google confirms who you are to us.",
+        "- **Maps:** the map on our website is provided by Google Maps, which may collect data according to its own policy.",
+        "We may also share information if the law requires it, or to protect the rights and safety of our guests and staff.",
+        "## Cookies",
+        "Cookies are small files a website stores in your browser. We use as few as we can, in three groups:",
+        "- **Necessary (always on):** keep you signed in, remember your cart and your cookie choice, and protect the site against abuse. The website can't work without them, so they don't need your permission.",
+        "- **Marketing (only if you accept):** tools such as the Meta Pixel measure how our ads perform on social media.",
+        "We ask for your choice the first time you visit and remember it for 6 months. You can change it at any time with **Cookie settings** at the bottom of every page. When you turn a group off, we remove the cookies it left behind. You can also block or delete cookies in your browser's settings.",
+        "## How long we keep it",
+        "- **Account details:** for as long as your account is open. You can close it at any time from your account settings.",
+        "- **Bookings and orders:** up to 5 years, for accounting and to help with any question about a past visit or order.",
+        "- **Messages:** up to 2 years after our last reply.",
+        "- **Security logs:** a few weeks.",
+        "## How we protect it",
+        "Passwords are stored encrypted, the website uses a secure (HTTPS) connection, sign-in sessions expire, and only the team members who need information can see it. No system is perfectly secure, but we take reasonable steps to protect your data and act quickly if something goes wrong.",
+        "## Your rights",
+        "You can ask us at any time to:",
+        "- see the personal information we hold about you;",
+        "- correct anything that is wrong or out of date;",
+        "- delete your information, unless we must keep it by law;",
+        "- stop using it for the newsletter or any purpose you agreed to;",
+        "- receive a copy of it in a common format.",
+        "Most of this you can do yourself from your account. For anything else, write to [{email}](mailto:{email}). We will answer within 30 days.",
+        "## Children",
+        "Our website is not meant for children under 16, and we do not knowingly collect their information. If you think a child has given us personal information, please contact us and we will delete it.",
+        "## Changes to this policy",
+        "We may update this policy from time to time. The date at the top shows when it last changed. If the changes are important, we will let you know on the website or by email.",
+        "## Contact",
+        "Questions, requests or concerns about your privacy? Write to [{email}](mailto:{email}), call {phone} or visit us at {address}. You can also use our [contact page](/contact)."
+      ]
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "updated": "2026-10-14",
+      "body": [
+        "These terms apply when you use {website}, create an account, book a table or order food from {brand}. By using the website you agree to them. If you do not agree, please do not use the website.",
+        "## About us",
+        "{website} is run by {legalName}, operating the restaurant {brand} at {address}. You can contact us at [{email}](mailto:{email}) or {phone}.",
+        "## Your account",
+        "- You must be at least 16 years old to create an account.",
+        "- Please give accurate details, especially your phone number, so we can reach you about your booking or order.",
+        "- Keep your password private. You are responsible for what happens under your account.",
+        "- We may suspend an account that is misused, for example for repeated no-shows, fake bookings or abusive messages.",
+        "You can close your account at any time from your account settings.",
+        "## Table reservations",
+        "- A booking made online is a **request** until we confirm it by email. We do our best to answer quickly.",
+        "- Online bookings are for the party sizes shown on the booking page. For larger groups, please call us.",
+        "- Please arrive on time. We hold your table for **15 minutes**; after that we may give it to other guests.",
+        "- If your plans change, cancel or change your booking from your account or by calling us, as early as possible.",
+        "- Repeated no-shows may lead us to decline future online bookings.",
+        "- For private events and large parties we may ask for a deposit, which we will explain before you confirm.",
+        "## Online orders",
+        "- **Prices:** prices are shown on the menu. Unless stated otherwise, VAT is added at checkout as shown. Delivery fees, minimum order amounts and any discounts are shown before you pay.",
+        "- **Availability:** dishes can sell out. If something you ordered is unavailable, we will contact you to offer a replacement or a refund for that item.",
+        "- **Payment:** you can pay by card online or in cash on delivery or pickup, depending on what is offered. Card payments are processed securely by Stripe.",
+        "- **Times:** delivery and pickup times are estimates. We work hard to meet them, but traffic, weather and busy evenings can cause delays.",
+        "- **Delivery:** please make sure your address and phone number are correct and that someone is available to receive the order.",
+        "## Cancellations and refunds",
+        "- You can cancel an order free of charge until we start preparing it. Once it is being prepared, we may not be able to cancel it.",
+        "- If something is wrong with your order (a missing item, the wrong dish, a quality problem), contact us **the same day** with your order number. We will make it right with a replacement, a credit or a refund.",
+        "- Refunds for card payments go back to the same card. Depending on your bank, they can take 5 to 10 working days to appear.",
+        "- If we have to cancel an order, we refund you in full.",
+        "## Allergies and dietary needs",
+        "Our menu shows the main allergens in each dish, and our team is happy to help. However, our kitchen handles nuts, gluten, dairy, eggs, fish, shellfish, sesame and other allergens, so we **cannot guarantee** that any dish is completely free of them. If you have a severe allergy, please tell us when you book or order, and speak to our team before eating.",
+        "## Using the website",
+        "Please do not misuse the website: no fake bookings or orders, no attempts to break or overload it, no harmful content in messages, and no copying of our content for commercial use. We may refuse service or remove content that breaks these rules.",
+        "## Our content",
+        "The texts, photos, logo, menu and design of this website belong to {legalName} or are used with permission. You may share links and view the website for personal use, but please ask us before reusing our content.",
+        "## Liability",
+        "We take great care in running {brand} and this website, but the website is provided \"as is\". We are not responsible for losses caused by events outside our reasonable control, such as internet outages, payment provider failures or extreme weather. Nothing in these terms limits our responsibility where the law does not allow it, including for injury caused by our negligence.",
+        "## Changes to these terms",
+        "We may update these terms from time to time. The date at the top shows when they last changed. The version on the website when you book or order is the one that applies to that booking or order.",
+        "## Governing law",
+        "These terms are governed by the laws of {country}. If a disagreement arises, we will first try to solve it with you directly and in good faith; otherwise the competent courts of {country} will decide.",
+        "## Contact",
+        "Questions about these terms? Write to [{email}](mailto:{email}), call {phone}, or use our [contact page](/contact). Please also read our [privacy policy](/legal/privacy)."
+      ]
+    },
+    "cookies": {
+      "title": "Cookies on {brand}",
+      "message": "We use necessary cookies to keep the site working. With your permission, we'd also like to use analytics cookies to see how the site is used, so we can make it better.",
+      "acceptLabel": "Accept all",
+      "declineLabel": "Decline",
+      "manageLabel": "Manage preferences",
+      "policyHref": "/legal/privacy#cookies"
+    }
+  }
+}

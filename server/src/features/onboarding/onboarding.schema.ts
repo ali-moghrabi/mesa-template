@@ -1,10 +1,5 @@
 import { z } from 'zod';
 
-/**
- * What a new restaurant sends from the onboarding form (/start on the website).
- * The web form checks the same rules; this is the copy the server trusts.
- */
-
 const text = (max: number) => z.string().trim().max(max);
 const optionalText = (max: number) => text(max).optional().default('');
 const url = z
@@ -52,6 +47,8 @@ export const onboardingSchema = z.object({
   }),
   contact: z.object({
     mapsLink: url,
+    /** "33.8962, 35.4823" from Google Maps (the web form requires it) */
+    location: optionalText(120),
     street: optionalText(160),
     area: optionalText(80),
     city: text(80).min(2, 'Add the city'),

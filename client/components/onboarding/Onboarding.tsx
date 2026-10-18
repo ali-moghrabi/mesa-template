@@ -83,8 +83,6 @@ const STEP_INFO: Record<Step, { title: string; hint: string }> = {
   review: { title: "Review & send", hint: "Check everything once" },
 };
 
-/* ───────────── draft on this device ───────────── */
-
 const readDraft = (): OnboardingAnswers | null => {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -96,8 +94,6 @@ const readDraft = (): OnboardingAnswers | null => {
 const noSubscribe = () => () => {};
 const hasDraftSnapshot = () => readDraft() !== null;
 const noDraftOnServer = () => false;
-
-/* ───────────── the form ───────────── */
 
 export function Onboarding({ apiUrl, base, plan }: Props) {
   const [answers, setAnswers] = useState<OnboardingAnswers>(() =>
@@ -514,6 +510,8 @@ export function Onboarding({ apiUrl, base, plan }: Props) {
   );
 }
 
+/* ───────────── welcome & done ───────────── */
+
 function Logo() {
   return (
     <a
@@ -630,7 +628,7 @@ function Done({ name, restaurant }: { name: string; restaurant: string }) {
         <p className="mt-4 text-lg text-pretty text-[#6B5E54]">
           We received everything for{" "}
           <strong className="text-[#1C1512]">{restaurant}</strong>. A
-          confirmation is on its way to your email and WhatsApp.
+          confirmation is on its way to your email.
         </p>
         <ol className="mt-10 w-full space-y-3 text-left">
           {[
@@ -839,8 +837,24 @@ function ContactStep({ a, patch, errors }: StepProps) {
   return (
     <>
       <Field
+        label="Location on the map"
+        hint="Open Google Maps, press and hold on your restaurant, then copy the two numbers that appear (on a computer: right-click it)"
+        error={err("location")}
+        id="location"
+      >
+        <input
+          id="location"
+          value={c.location ?? ""}
+          onChange={set("location")}
+          inputMode="decimal"
+          placeholder="33.8962, 35.4823"
+          className={INPUT}
+          aria-invalid={!!err("location")}
+        />
+      </Field>
+      <Field
         label="Google Maps link"
-        hint="Open your place on Google Maps, tap Share, paste the link"
+        hint="Optional · Open your place on Google Maps, tap Share, paste the link"
         error={err("mapsLink")}
         id="maps"
       >
@@ -1127,6 +1141,7 @@ function LookStep({
           </p>
         )}
 
+        {/* A tiny preview of their site */}
         {valid && (
           <MiniPreview
             name={a.restaurant.name || "Your restaurant"}
@@ -2096,6 +2111,7 @@ function ServiceCard({
   );
 }
 
+/** A price: typed freely, kept as a number (empty = not set) */
 function MoneyField({
   label,
   hint,

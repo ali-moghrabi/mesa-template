@@ -1,9 +1,3 @@
-/**
- * The onboarding form for new restaurants (/start): the answers' shape, the checks for each step,
- * and the draft config.json built from the answers. The API checks the answers again
- * (mesa-api: src/features/onboarding/onboarding.schema.ts) and emails everything to the team.
- */
-
 export const DAYS = [
   "monday",
   "tuesday",
@@ -95,6 +89,8 @@ export type OnboardingAnswers = {
   };
   contact: {
     mapsLink: string;
+    /** "33.8962, 35.4823": copied from Google Maps (press and hold the place). Required. */
+    location: string;
     street: string;
     area: string;
     city: string;
@@ -149,6 +145,7 @@ export function emptyAnswers(plan?: string): OnboardingAnswers {
     },
     contact: {
       mapsLink: "",
+      location: "",
       street: "",
       area: "",
       city: "",
@@ -223,6 +220,12 @@ export function validateStep(step: Step, a: OnboardingAnswers): Errors {
   }
   if (step === "contact") {
     const c = a.contact;
+    if (!(c.location ?? "").trim() && !coordinates(c.mapsLink))
+      e["contact.location"] =
+        "Add your location: press and hold your restaurant on Google Maps, then copy the numbers shown (like 33.8962, 35.4823)";
+    else if ((c.location ?? "").trim() && !locationOf(c))
+      e["contact.location"] =
+        "Use two numbers separated by a comma, like 33.8962, 35.4823";
     if (c.city.trim().length < 2) e["contact.city"] = "Add the city";
     if (c.country.trim().length < 2) e["contact.country"] = "Add the country";
     if (!isPhone(c.phone))
@@ -423,11 +426,33 @@ const intl = (phone: string, country: string) => {
 };
 
 /** "…/@33.8938,35.5018,17z…" → coordinates, when the Maps link has them */
-function coordinates(link: string) {
+/** Coordinates inside a full Google Maps link (short maps.app.goo.gl links don't have any) */
+function coordinates(link: string | undefined) {
+  const v = link ?? "";
   const m =
-    /@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(link) ??
-    /[?&]q=(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(link);
-  return m ? { lat: Number(m[1]), lng: Number(m[2]) } : undefined;
+    /!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/.exec(v) ?? // the place's own pin
+    /@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/.exec(v) ?? // the map's centre
+    /[?&](?:q|query|ll)=(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/.exec(v);
+  return m ? valid(Number(m[1]), Number(m[2])) : undefined;
+}
+
+const valid = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  Math.abs(lat) <= 90 &&
+  Math.abs(lng) <= 180 &&
+  !(lat === 0 && lng === 0)
+    ? { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 }
+    : undefined;
+
+/** "33.8962, 35.4823" (or a full Maps link pasted there), else the coordinates in the Maps link */
+export function locationOf(c: { location?: string; mapsLink?: string }) {
+  const v = (c.location ?? "").trim();
+  const m = /^(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)$/.exec(v);
+  return (
+    (m ? valid(Number(m[1]), Number(m[2])) : coordinates(v)) ??
+    coordinates(c.mapsLink)
+  );
 }
 
 /** "Lebanese bakery in Beirut" */
@@ -463,7 +488,7 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   const city = a.contact.city.trim();
   const cuisine = a.restaurant.cuisine;
   const s = a.services;
-  const geo = coordinates(a.contact.mapsLink);
+  const geo = locationOf(a.contact);
   const address = [a.contact.street, a.contact.area, city, a.contact.country]
     .filter(Boolean)
     .join(", ");
@@ -542,9 +567,13 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   const menu = cfg.menu as Json;
   const currency = menu.currency as { primary: Json; secondary?: Json };
   currency.primary.code = s.currency;
-  if (currency.secondary)
-    currency.secondary.enabled =
-      s.currency === "USD" && /lebanon/i.test(a.contact.country);
+  if (currency.secondary) {
+    // The demo's second currency (LBP) can't also be the main one: then there's no second currency
+    if (currency.secondary.code === s.currency) delete currency.secondary;
+    else
+      currency.secondary.enabled =
+        s.currency === "USD" && /lebanon/i.test(a.contact.country);
+  }
 
   const business = cfg.business as Json;
   business.legalName = a.contact.legalName.trim() || name;
@@ -640,10 +669,32 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   integrations.googleAnalyticsId = "";
   integrations.metaPixelId = "";
   integrations.googleTagManagerId = "";
-  integrations.customDomain = a.extras.domain.trim();
+  // Bare domain only ("myplace.com"), whatever was typed ("https://www.myplace.com/").
+  // No domain yet: example.com, replaced by hand once they have one
+  integrations.customDomain = host.replace(/^www\./, "") || "example.com";
   if (integrations.emailProvider)
     (integrations.emailProvider as Json).formsRecipient =
       a.contact.email.trim();
 
+  // Switches that need data the client didn't give: turn them off rather than fail the schema
+  if (!geo) switchOff(cfg, "showMap");
+  if ((business.socials as unknown[]).length === 0) {
+    switchOff(cfg, "showSocials");
+    // The footer shows them unless told not to
+    const layout = (cfg.layout ??= {}) as Json;
+    const footer = (layout.footer ??= {}) as Json;
+    footer.showSocials = false;
+  }
+
   return clone(cfg);
+}
+
+/** Sets every `key: true` anywhere in the config to false */
+function switchOff(node: unknown, key: string) {
+  if (Array.isArray(node)) node.forEach((n) => switchOff(n, key));
+  else if (node && typeof node === "object") {
+    const obj = node as Json;
+    if (obj[key] === true) obj[key] = false;
+    Object.values(obj).forEach((v) => switchOff(v, key));
+  }
 }

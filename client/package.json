@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/use-site.mjs",
+    "predev": "node scripts/use-site.mjs",
+    "prebuild": "node scripts/use-site.mjs",
+    "new-site": "tsx scripts/new-site.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -41,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

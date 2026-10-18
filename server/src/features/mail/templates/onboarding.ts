@@ -128,6 +128,14 @@ export function onboardingTeamEmail(
               .join(', '),
           ),
         ],
+        [
+          'Location',
+          a.contact.location
+            ? link(
+                `https://maps.google.com/?q=${encodeURIComponent(a.contact.location.replace(/\s+/g, ''))}`,
+              )?.replace(/>[^<]*</, `>${escapeHtml(a.contact.location)}<`)
+            : undefined,
+        ],
         ['Google Maps', link(a.contact.mapsLink)],
         ['Phone', e(a.contact.phone)],
         ['WhatsApp', e(a.contact.whatsapp)],
@@ -193,6 +201,8 @@ export function onboardingTeamEmail(
     text,
   };
 }
+
+/* ───────────── to the client ───────────── */
 
 export function onboardingClientEmail(
   brand: Brand,

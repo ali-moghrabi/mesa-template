@@ -42,6 +42,7 @@ const envSchema = z.object({
   ONBOARDING_NOTIFY_EMAIL: z.email().optional(),
   ONBOARDING_WHATSAPP_PHONE: z.string().optional(),
   CALLMEBOT_API_KEY: z.string().optional(),
+  SITES_PATH: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
