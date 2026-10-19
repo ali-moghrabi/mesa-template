@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 
 const SDK_URL = "https://tap-sdks.b-cdn.net/card/1.0.2/index.js";
 const ELEMENT_ID = "tap-card-field";
-const TOKENIZE_TIMEOUT_MS = 30_000;
+const TOKENIZE_TIMEOUT_MS = 20_000;
+const INCOMPLETE = "Enter your card number, expiry date and CVV.";
 
 type Enum = Record<string, string>;
 type CardSdk = {
@@ -38,7 +39,6 @@ declare global {
 
 let loading: Promise<CardSdk> | null = null;
 
-/** Tap's script, loaded once, only on the checkout */
 function loadSdk(): Promise<CardSdk> {
   if (window.CardSDK) return Promise.resolve(window.CardSDK);
   loading ??= new Promise<CardSdk>((resolve, reject) => {
@@ -63,7 +63,6 @@ const isDark = () =>
   document.documentElement.classList.contains("dark") ||
   document.documentElement.dataset.theme === "dark";
 
-/** Tap's error payloads aren't documented: the first readable message */
 function messageOf(data: unknown): string {
   if (data && typeof data === "object") {
     const d = data as Record<string, unknown>;
@@ -80,11 +79,9 @@ function messageOf(data: unknown): string {
 }
 
 export type TapCardHandle = {
-  /** The typed card → a one-time token, or a message to show */
   tokenize: () => Promise<
     { ok: true; token: string } | { ok: false; message: string }
   >;
-  /** Clears the inputs (after a declined card) */
   reset: () => void;
 };
 
@@ -107,13 +104,13 @@ export function TapCardField({
     "loading",
   );
   const sdk = useRef<CardSdk | null>(null);
+  const complete = useRef(false);
   const pending = useRef<
     | ((
         result: { ok: true; token: string } | { ok: false; message: string },
       ) => void)
     | null
   >(null);
-  // The first values only: the field is drawn once (the amount is shown on the Pay button)
   const initial = useRef({ amount, currency, customer, publicKey, merchantId });
 
   useEffect(() => {
@@ -170,6 +167,12 @@ export function TapCardField({
             edges: card.Edges?.CURVED ?? "curved",
             direction: card.Direction?.LTR ?? "ltr",
           },
+          onValidInput: (data: unknown) => {
+            complete.current = data !== false;
+          },
+          onInvalidInput: () => {
+            complete.current = false;
+          },
           onReady: () => {
             if (!cancelled) setStatus("ready");
           },
@@ -194,7 +197,6 @@ export function TapCardField({
           },
         });
         unmount = rendered?.unmount;
-        // onReady normally comes first; this keeps the field visible if it doesn't
         setTimeout(() => {
           if (!cancelled) setStatus((s) => (s === "loading" ? "ready" : s));
         }, 4000);
@@ -203,7 +205,6 @@ export function TapCardField({
         if (!cancelled) setStatus("error");
       });
 
-    // Light / dark switches follow the site
     const observer = new MutationObserver(() =>
       sdk.current?.updateTheme?.(isDark() ? "dark" : "light"),
     );
@@ -236,6 +237,8 @@ export function TapCardField({
                 ? "Card payments didn't load. Refresh the page, or pay cash."
                 : "Card payments are still loading. Try again in a second.",
           });
+        if (!complete.current)
+          return Promise.resolve({ ok: false as const, message: INCOMPLETE });
         return new Promise((resolve) => {
           const timer = setTimeout(() => {
             pending.current = null;
@@ -252,6 +255,7 @@ export function TapCardField({
         });
       },
       reset() {
+        complete.current = false;
         sdk.current?.resetCardInputs?.();
       },
     }),
@@ -277,8 +281,9 @@ export function TapCardField({
       )}
       <div
         id={ELEMENT_ID}
+        style={{ colorScheme: "light" }}
         className={cn(
-          "transition-opacity duration-300",
+          "w-full transition-opacity duration-300 [&_iframe]:w-full! [&_iframe]:max-w-full! [&_iframe]:bg-transparent!",
           status === "ready" ? "opacity-100" : "opacity-0",
         )}
       />
