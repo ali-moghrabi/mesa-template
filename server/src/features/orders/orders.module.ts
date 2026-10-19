@@ -15,9 +15,9 @@ import { PromotionsModule } from 'src/features/promotions/promotions.module';
 import { OrderingConfig } from './ordering.config';
 import { OrdersAdminController } from './orders-admin.controller';
 import { OrdersAdminService } from './orders-admin.service';
-import { OrdersController, StripeWebhookController } from './orders.controller';
+import { OrdersController, TapWebhookController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { StripeService } from './stripe.service';
+import { TapService } from './tap.service';
 
 @Module({
   imports: [
@@ -32,12 +32,8 @@ import { StripeService } from './stripe.service';
     SettingsModule,
     PromotionsModule,
   ],
-  controllers: [
-    OrdersController,
-    StripeWebhookController,
-    OrdersAdminController,
-  ],
-  providers: [OrdersService, OrdersAdminService, OrderingConfig, StripeService],
+  controllers: [OrdersController, TapWebhookController, OrdersAdminController],
+  providers: [OrdersService, OrdersAdminService, OrderingConfig, TapService],
   exports: [OrdersService, OrderingConfig],
 })
 export class OrdersModule {}

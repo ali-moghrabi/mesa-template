@@ -182,29 +182,53 @@ export function zonedToDate(local: string, timeZone: string): Date {
 }
 
 const ZERO_DECIMAL = new Set([
-  'bif',
-  'clp',
-  'djf',
-  'gnf',
-  'jpy',
-  'kmf',
-  'krw',
-  'mga',
-  'pyg',
-  'rwf',
-  'ugx',
-  'vnd',
-  'vuv',
-  'xaf',
-  'xof',
-  'xpf',
+  'BIF',
+  'CLP',
+  'DJF',
+  'GNF',
+  'ISK',
+  'JPY',
+  'KMF',
+  'KRW',
+  'PYG',
+  'RWF',
+  'UGX',
+  'VND',
+  'VUV',
+  'XAF',
+  'XOF',
+  'XPF',
+]);
+const THREE_DECIMAL = new Set([
+  'BHD',
+  'IQD',
+  'JOD',
+  'KWD',
+  'LYD',
+  'OMR',
+  'TND',
 ]);
 
-export function toStripeAmount(
+export function currencyDecimals(currency: string): number {
+  const code = currency.toUpperCase();
+  if (ZERO_DECIMAL.has(code)) return 0;
+  if (THREE_DECIMAL.has(code)) return 3;
+  return 2;
+}
+
+export function toGatewayAmount(
   minor: number,
   currency: string,
   priceUnit: number,
 ): number {
-  const stripeUnit = ZERO_DECIMAL.has(currency.toLowerCase()) ? 1 : 100;
-  return Math.round((minor * stripeUnit) / priceUnit);
+  return Number((minor / priceUnit).toFixed(currencyDecimals(currency)));
+}
+
+export function sameGatewayAmount(
+  a: number,
+  b: number,
+  currency: string,
+): boolean {
+  const d = currencyDecimals(currency);
+  return Number(a).toFixed(d) === Number(b).toFixed(d);
 }

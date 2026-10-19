@@ -49,7 +49,12 @@ export type CheckoutInfo = {
     instructions: string;
     slots: SlotDay[];
   };
-  payments: { card: boolean; cash: boolean };
+  /** cardForm: Tap's card field inside the checkout; null = guests pay on Tap's own page */
+  payments: {
+    card: boolean;
+    cash: boolean;
+    cardForm: { publicKey: string; merchantId?: string } | null;
+  };
   tips: number[];
   open: OpenStatus | null;
   scheduling: boolean;
@@ -122,7 +127,8 @@ export type OrderView = {
   history: { status: string; at: string }[];
 };
 
-export type PlacedOrder = { order: OrderView; clientSecret?: string };
+/** paymentUrl: Tap's secure payment page, for a card order still to be paid */
+export type PlacedOrder = { order: OrderView; paymentUrl?: string };
 
 export const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{5,22}$/;
 export const NOTES_MAX = 300;
@@ -251,28 +257,6 @@ export function quote(
       freeOver !== null && !free && baseFee > 0 ? n(freeOver - subtotal) : null,
   };
 }
-
-const ZERO_DECIMAL = new Set([
-  "bif",
-  "clp",
-  "djf",
-  "gnf",
-  "jpy",
-  "kmf",
-  "krw",
-  "mga",
-  "pyg",
-  "rwf",
-  "ugx",
-  "vnd",
-  "vuv",
-  "xaf",
-  "xof",
-  "xpf",
-]);
-
-export const stripeAmount = (amount: number, currency: string) =>
-  Math.round(amount * (ZERO_DECIMAL.has(currency.toLowerCase()) ? 1 : 100));
 
 export const STATUS_STEPS: Record<
   OrderType,

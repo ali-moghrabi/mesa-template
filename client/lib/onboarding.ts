@@ -185,8 +185,6 @@ export function emptyAnswers(plan?: string): OnboardingAnswers {
   };
 }
 
-/* ───────────── checks per step ───────────── */
-
 export type Errors = Record<string, string>;
 
 const isUrl = (v: string) => v === "" || /^https?:\/\/\S+\.\S+/i.test(v.trim());
@@ -194,7 +192,6 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 const isPhone = (v: string) => v.replace(/\D/g, "").length >= 7;
 const isTime = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
-/** The steps, in order, with what each one needs before moving on */
 export const STEPS = [
   "restaurant",
   "contact",
@@ -623,7 +620,7 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   const order = cfg.ordering as Json | undefined;
   if (order) {
     (order.payments as Json).methods = s.payments.map(
-      (p) => ({ cash: "cod", card: "stripe", whish: "whish" })[p],
+      (p) => ({ cash: "cod", card: "card", whish: "whish" })[p],
     );
     if (s.delivery) {
       const d = (order.delivery as Json | undefined) ?? {
@@ -669,18 +666,14 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   integrations.googleAnalyticsId = "";
   integrations.metaPixelId = "";
   integrations.googleTagManagerId = "";
-  // Bare domain only ("myplace.com"), whatever was typed ("https://www.myplace.com/").
-  // No domain yet: example.com, replaced by hand once they have one
   integrations.customDomain = host.replace(/^www\./, "") || "example.com";
   if (integrations.emailProvider)
     (integrations.emailProvider as Json).formsRecipient =
       a.contact.email.trim();
 
-  // Switches that need data the client didn't give: turn them off rather than fail the schema
   if (!geo) switchOff(cfg, "showMap");
   if ((business.socials as unknown[]).length === 0) {
     switchOff(cfg, "showSocials");
-    // The footer shows them unless told not to
     const layout = (cfg.layout ??= {}) as Json;
     const footer = (layout.footer ??= {}) as Json;
     footer.showSocials = false;
@@ -689,7 +682,6 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   return clone(cfg);
 }
 
-/** Sets every `key: true` anywhere in the config to false */
 function switchOff(node: unknown, key: string) {
   if (Array.isArray(node)) node.forEach((n) => switchOff(n, key));
   else if (node && typeof node === "object") {

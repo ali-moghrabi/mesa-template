@@ -130,7 +130,7 @@ function reservationRules(config: Json, timezone: string): ReservationRules {
   };
 }
 
-export const PAYMENT_METHOD_IDS = ['cod', 'stripe'] as const;
+export const PAYMENT_METHOD_IDS = ['cod', 'card'] as const;
 export type PaymentMethodId = (typeof PAYMENT_METHOD_IDS)[number];
 
 function paymentMethods(payments: Json): OrderingRules['payments'] {
@@ -141,7 +141,7 @@ function paymentMethods(payments: Json): OrderingRules['payments'] {
       .filter((m): m is string => typeof m === 'string')
       .map((m) => m.trim().toLowerCase()),
   );
-  return { card: ids.has('stripe'), cash: ids.has('cod') };
+  return { card: ids.has('card'), cash: ids.has('cod') };
 }
 
 function addressLine(value: unknown): string {

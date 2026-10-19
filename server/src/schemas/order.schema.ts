@@ -94,7 +94,10 @@ export class OrderPayment {
   status!: PaymentStatus;
 
   @Prop({ type: String })
-  intentId?: string;
+  chargeId?: string;
+
+  @Prop({ type: Number, default: 0 })
+  attempts?: number;
 
   @Prop({ type: Date })
   paidAt?: Date;
@@ -230,6 +233,9 @@ export class Order {
   @Prop({ type: Date, index: true })
   placedAt?: Date;
 
+  @Prop({ type: Date })
+  expiresAt?: Date;
+
   @Prop({ type: String })
   cancelReason?: string;
 
@@ -250,7 +256,8 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ userId: 1, idempotencyKey: 1 }, { unique: true });
 OrderSchema.index({ userId: 1, createdAt: -1 });
 OrderSchema.index({ status: 1, createdAt: -1 });
-OrderSchema.index({ 'payment.intentId': 1 }, { sparse: true });
+OrderSchema.index({ 'payment.chargeId': 1 }, { sparse: true });
+OrderSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 @Schema({ collection: 'counters', versionKey: false })
 export class Counter {

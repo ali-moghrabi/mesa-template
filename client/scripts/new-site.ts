@@ -14,8 +14,6 @@ const fail = (message: string): never => {
   process.exit(1);
 };
 
-/* ───────────── arguments ───────────── */
-
 const args = process.argv.slice(2);
 const flag = (name: string) => {
   const i = args.indexOf(`--${name}`);
@@ -29,8 +27,6 @@ if (!file)
   fail(
     "Pass the config.json from the onboarding email: npm run new-site -- <file> [--slug name] [--domain example.com] [--api https://…]",
   );
-
-/* ───────────── shared settings (filled in once) ───────────── */
 
 const SHARED_WEB = `# Same for every MESA client. new-site copies these into each client's web.env.
 NEXT_PUBLIC_MEDIA_URL=
@@ -68,7 +64,6 @@ function readEnv(path: string): Record<string, string> {
   return out;
 }
 
-/** Fills empty lines of a shared file from your local .env files (never overwrites a value you typed) */
 function prefill(
   text: string,
   values: Record<string, string>,
@@ -388,8 +383,6 @@ writeFileSync(
     ["NEXT_PUBLIC_API_URL", apiBase],
     ["IRON_SESSION_PASSWORD", secret()],
     ...Object.entries(sharedWeb),
-    ["# The restaurant's own Stripe account (publishable key, pk_live_…)", ""],
-    ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""],
   ]),
 );
 
@@ -416,9 +409,19 @@ writeFileSync(
     ["BRAND_ADDRESS", `"${addressLine.replace(/"/g, "")}"`],
     ["BRAND_LOGO_URL", logo ? `${webUrl}/${logo}` : ""],
     ...Object.entries(apiShared),
-    ["# The restaurant's own Stripe account", ""],
-    ["STRIPE_SECRET_KEY", ""],
-    ["STRIPE_WEBHOOK_SECRET", ""],
+    // Tap sends payment notifications here (Render's own address works too, when this is empty)
+    ["API_PUBLIC_URL", apiUrl],
+    [
+      "# Card payments: the restaurant's own Tap account. No secret key: cards are off",
+      "",
+    ],
+    ["TAP_SECRET_KEY", ""],
+    [
+      "# The card field inside the checkout. Empty: guests pay on Tap's own page",
+      "",
+    ],
+    ["TAP_PUBLIC_KEY", ""],
+    ["TAP_MERCHANT_ID", ""],
   ]),
 );
 
@@ -448,7 +451,7 @@ Site: \`${slug}\` · Website: ${webUrl} · API: ${apiUrl}
 
 ## 4. Accounts
 - [ ] Create the owner's admin account
-${on("onlineOrdering") ? `- [ ] Stripe: the restaurant's keys in both env files, and a webhook to ${apiUrl}/… (same path as the demo)\n` : ""}${get(raw, "integrations") ? "- [ ] Google sign-in: add the domain to the OAuth client's authorised origins\n" : ""}- [ ] Menu: enter it in the admin panel, or seed it
+${on("onlineOrdering") ? `- [ ] Card payments: their Tap keys on Render (TAP_SECRET_KEY, TAP_PUBLIC_KEY, TAP_MERCHANT_ID), "card" in ordering.payments.methods, and ask Tap to register ${webUrl.replace("https://", "")} for the card field\n` : ""}${get(raw, "integrations") ? "- [ ] Google sign-in: add the domain to the OAuth client's authorised origins\n" : ""}- [ ] Menu: enter it in the admin panel, or seed it
 
 ## 5. Test before handing over
 - [ ] Phone + desktop: pages, menu, photos, colours, opening hours

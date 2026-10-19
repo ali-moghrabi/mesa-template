@@ -3,15 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type Ref,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useForm,
   useWatch,
@@ -20,17 +12,6 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  loadStripe,
-  type Appearance,
-  type StripeElementsOptions,
-} from "@stripe/stripe-js";
-import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from "@stripe/react-stripe-js";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -64,6 +45,8 @@ import {
   placeOrder,
   type PlaceOrderInput,
 } from "@/lib/actions/checkout.actions";
+import { TapCardField, type TapCardHandle } from "./TapCardField";
+import { ThreeDsWindow } from "./ThreeDsWindow";
 import {
   ACTIVE_ORDERS_KEY,
   CHECKOUT_SUCCESS_ROUTE,
@@ -71,7 +54,6 @@ import {
   NOTES_MAX,
   checkoutSchema,
   quote,
-  stripeAmount,
   type CheckoutInfo,
   type CheckoutValues,
   type OrderType,
@@ -79,12 +61,13 @@ import {
   type SlotDay,
 } from "@/lib/checkout";
 
-const STRIPE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
-let stripePromise: ReturnType<typeof loadStripe> | null = null;
-const getStripe = () => (stripePromise ??= loadStripe(STRIPE_KEY));
-const MIN_CARD_AMOUNT = 50;
-
-type Phase = "idle" | "placing" | "paying" | "confirming" | "done";
+type Phase =
+  | "idle"
+  | "placing"
+  | "verifying"
+  | "confirming"
+  | "redirecting"
+  | "done";
 
 type Props = {
   info: CheckoutInfo;
@@ -100,7 +83,9 @@ export function Checkout({ info, currency, brandName }: Props) {
   const types = (["delivery", "pickup"] as const).filter(
     (t) => info[t] !== null,
   );
-  const cardAvailable = info.payments.card && STRIPE_KEY !== "";
+
+  const cardAvailable = info.payments.card;
+  const cardForm = cardAvailable ? info.payments.cardForm : null;
   const closed = info.open !== null && !info.open.open;
   const areas = info.delivery?.areas ?? [];
 
@@ -152,29 +137,25 @@ export function Checkout({ info, currency, brandName }: Props) {
       ? `Delivery starts from ${money(bill.minimumOrder).main}. Add ${money(bill.belowMinimum).main} more, or pick it up.`
       : closed && (!info.scheduling || slots.length === 0)
         ? `${info.open?.label ?? "Closed"}. Come back then to order.`
-        : paymentMethod === "card" &&
-            stripeAmount(bill.total, info.currency) < MIN_CARD_AMOUNT
-          ? "Card payments start from a small minimum. Pay cash or add a dish."
-          : null;
+        : null;
 
-  const card = useRef<CardHandle>(null);
   const attempt = useRef<{ signature: string; key: string } | null>(null);
+  const card = useRef<TapCardHandle>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [payError, setPayError] = useState<string | null>(null);
-  const appearance = useStripeAppearance();
-  const elementsOptions = useMemo<StripeElementsOptions>(
-    () => ({
-      mode: "payment",
-      amount: Math.max(
-        stripeAmount(bill.total, info.currency),
-        MIN_CARD_AMOUNT,
-      ),
-      currency: info.currency.toLowerCase(),
-      allowedPaymentMethodTypes: ["card"],
-      appearance,
-    }),
-    [bill.total, info.currency, appearance],
-  );
+  const [threeDs, setThreeDs] = useState<{
+    url: string;
+    orderId: string;
+  } | null>(null);
+
+  // Back from Tap's page with the browser's back button: the page is restored as it was left
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setPhase("idle");
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
   const finish = (orderId: string) => {
     setPhase("done");
@@ -223,18 +204,6 @@ export function Checkout({ info, currency, brandName }: Props) {
       return;
     }
 
-    if (byCard) {
-      setPhase("placing");
-      const problem = card.current
-        ? await card.current.submit()
-        : "Card payments are still loading. Try again in a second.";
-      if (problem) {
-        setPhase("idle");
-        setPayError(problem);
-        return;
-      }
-    }
-
     const input: Omit<PlaceOrderInput, "idempotencyKey"> = {
       type: values.type,
       paymentMethod: values.paymentMethod,
@@ -260,49 +229,94 @@ export function Checkout({ info, currency, brandName }: Props) {
           : undefined,
       expectedTotal: bill.total,
     };
+    // The card isn't part of it: a second card after a decline retries the same order
     const signature = JSON.stringify(input);
     if (attempt.current?.signature !== signature)
       attempt.current = { signature, key: newKey() };
 
     setPhase("placing");
+    let cardToken: string | undefined;
+    if (byCard && cardForm) {
+      const tokenized = card.current
+        ? await card.current.tokenize()
+        : { ok: false as const, message: "Card payments are still loading." };
+      if (!tokenized.ok) {
+        setPhase("idle");
+        setPayError(tokenized.message);
+        return;
+      }
+      cardToken = tokenized.token;
+    }
+
     const placed = await placeOrder({
       ...input,
       idempotencyKey: attempt.current.key,
+      ...(cardToken && { cardToken }),
     });
     if (!placed.ok) {
       showApiError(placed);
       return;
     }
-    const { order, clientSecret } = placed.data;
-    if (!byCard || order.status !== "awaiting_payment" || !clientSecret) {
+    const { order, paymentUrl } = placed.data;
+    if (!byCard || order.status !== "awaiting_payment") {
       finish(order.id);
       return;
     }
-
-    setPhase("paying");
-    const charged = card.current
-      ? await card.current.confirm(clientSecret, {
-          returnUrl: `${window.location.origin}${CHECKOUT_SUCCESS_ROUTE}?order=${order.id}`,
-          billing: {
-            name: info.customer.name,
-            email: info.customer.email,
-            phone: values.phone,
-          },
-        })
-      : {
-          ok: false as const,
-          message: "Card payments didn't load. Refresh the page.",
-        };
-    if (!charged.ok) {
+    if (order.payment.status === "failed") {
+      cardDeclined(order.payment.lastError);
+      return;
+    }
+    if (!paymentUrl || !/^https:\/\//i.test(paymentUrl)) {
       setPhase("idle");
-      setPayError(charged.message);
+      setPayError("Card payments didn't start. Try again, or pay cash.");
       return;
     }
 
-    // 4. The API checks the payment with Stripe (the receipt page does it again if this fails)
+    if (cardForm) {
+      // The bank's 3-D Secure check, in a window over the checkout
+      setPhase("verifying");
+      setThreeDs({ url: paymentUrl, orderId: order.id });
+      return;
+    }
+    // No card field: Tap's secure page, then the receipt page confirms the payment
+    setPhase("redirecting");
+    window.location.assign(paymentUrl);
+  };
+
+  const cardDeclined = (message?: string) => {
+    setPhase("idle");
+    setPayError(
+      `${message ?? "Your card was declined."} You weren't charged. Try again or use another card.`,
+    );
+    card.current?.reset();
+  };
+
+  // The bank's check is over: the API reads the result from Tap
+  const afterThreeDs = async () => {
+    const orderId = threeDs?.orderId;
+    setThreeDs(null);
+    if (!orderId) return;
     setPhase("confirming");
-    await confirmOrderPayment(order.id);
-    finish(order.id);
+    const result = await confirmOrderPayment(orderId);
+    if (
+      result.ok &&
+      result.data.status === "awaiting_payment" &&
+      result.data.payment.status === "failed"
+    ) {
+      cardDeclined(result.data.payment.lastError);
+      return;
+    }
+    // Paid, or still being confirmed: the receipt page shows which, and keeps checking
+    finish(orderId);
+  };
+
+  const cancelThreeDs = () => {
+    setThreeDs(null);
+    setPhase("idle");
+    setPayError(
+      "The bank check was closed before it finished. You weren't charged. Try again when you're ready.",
+    );
+    card.current?.reset();
   };
 
   const busy = phase !== "idle";
@@ -654,7 +668,7 @@ export function Checkout({ info, currency, brandName }: Props) {
                     onSelect={() => setValue("paymentMethod", "card")}
                     icon={<CreditCard className="size-5" />}
                     title="Credit or debit card"
-                    text="Visa, Mastercard, Amex…"
+                    text="Visa, Mastercard…"
                   />
                 )}
                 {info.payments.cash && (
@@ -677,14 +691,34 @@ export function Checkout({ info, currency, brandName }: Props) {
                 )}
               </div>
 
-              {/* Card: Stripe's secure field stays mounted so the typed card isn't lost when switching */}
+              {/* Card: Tap's card field here (kept mounted, so a typed card survives switching to
+                  cash and back), or a note that the card is typed on Tap's page after "Pay" */}
               {cardAvailable && (
                 <div
                   className={cn("mt-4", paymentMethod !== "card" && "hidden")}
                 >
-                  <Elements stripe={getStripe()} options={elementsOptions}>
-                    <CardPayment ref={card} />
-                  </Elements>
+                  {cardForm ? (
+                    <TapCardField
+                      ref={card}
+                      publicKey={cardForm.publicKey}
+                      merchantId={cardForm.merchantId}
+                      amount={bill.total}
+                      currency={info.currency}
+                      customer={{
+                        name: info.customer.name,
+                        email: info.customer.email,
+                      }}
+                    />
+                  ) : (
+                    <p className="flex items-start gap-2.5 rounded-xl bg-foreground/4 px-3.5 py-3 text-sm text-foreground/70">
+                      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                      <span>
+                        You&apos;ll enter your card on our payment
+                        partner&apos;s secure page, then come straight back
+                        here.
+                      </span>
+                    </p>
+                  )}
                   {payError && (
                     <p
                       role="alert"
@@ -695,8 +729,8 @@ export function Checkout({ info, currency, brandName }: Props) {
                     </p>
                   )}
                   <p className="mt-3 flex items-center gap-1.5 text-xs text-foreground/50">
-                    <Lock className="size-3.5" /> Encrypted by Stripe. Your card
-                    details never reach our servers.
+                    <Lock className="size-3.5" /> Secured by Tap Payments. Your
+                    card details never reach our servers.
                   </p>
                 </div>
               )}
@@ -849,7 +883,15 @@ export function Checkout({ info, currency, brandName }: Props) {
         />
       </div>
 
-      {busy && <Working phase={phase} />}
+      {busy && phase !== "verifying" && <Working phase={phase} />}
+      {threeDs && (
+        <ThreeDsWindow
+          url={threeDs.url}
+          orderId={threeDs.orderId}
+          onDone={() => void afterThreeDs()}
+          onCancel={cancelThreeDs}
+        />
+      )}
     </main>
   );
 }
@@ -858,175 +900,6 @@ export function Checkout({ info, currency, brandName }: Props) {
 function newKey() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/* ───────────── Stripe card field ───────────── */
-
-type CardHandle = {
-  /** Stripe checks the details; a message when something's wrong */
-  submit: () => Promise<string | null>;
-  confirm: (
-    clientSecret: string,
-    details: {
-      returnUrl: string;
-      billing: { name: string; email: string; phone: string };
-    },
-  ) => Promise<{ ok: true } | { ok: false; message: string }>;
-};
-
-function CardPayment({ ref }: { ref: Ref<CardHandle> }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [loaded, setLoaded] = useState(false);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      async submit() {
-        if (!stripe || !elements)
-          return "Card payments are still loading. Try again in a second.";
-        const { error } = await elements.submit();
-        return error ? (error.message ?? "Check your card details.") : null;
-      },
-      async confirm(clientSecret, { returnUrl, billing }) {
-        if (!stripe || !elements)
-          return {
-            ok: false,
-            message: "Card payments didn't load. Refresh the page.",
-          };
-        const { error, paymentIntent } = await stripe.confirmPayment({
-          elements,
-          clientSecret,
-          redirect: "if_required",
-          confirmParams: {
-            return_url: returnUrl,
-            payment_method_data: { billing_details: billing },
-          },
-        });
-        if (error)
-          return {
-            ok: false,
-            message:
-              error.message ?? "Your card was declined. Try another card.",
-          };
-        if (
-          paymentIntent &&
-          paymentIntent.status !== "succeeded" &&
-          paymentIntent.status !== "processing"
-        ) {
-          return {
-            ok: false,
-            message:
-              "The payment didn't go through. Try again or use another card.",
-          };
-        }
-        return { ok: true };
-      },
-    }),
-    [stripe, elements],
-  );
-
-  return (
-    <div className="relative min-h-33">
-      {!loaded && (
-        <div className="absolute inset-0 space-y-3" aria-hidden="true">
-          <div className="h-12 animate-pulse rounded-xl bg-foreground/6" />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="h-12 animate-pulse rounded-xl bg-foreground/6" />
-            <div className="h-12 animate-pulse rounded-xl bg-foreground/6" />
-          </div>
-        </div>
-      )}
-      <PaymentElement
-        onReady={() => setLoaded(true)}
-        options={{
-          layout: "tabs",
-          fields: {
-            billingDetails: { name: "never", email: "never", phone: "never" },
-          },
-          terms: { card: "never" },
-        }}
-        className={cn(
-          "transition-opacity duration-300",
-          loaded ? "opacity-100" : "opacity-0",
-        )}
-      />
-    </div>
-  );
-}
-
-/** Stripe's field in the site's colours, light or dark, following theme changes */
-function useStripeAppearance(): Appearance | undefined {
-  const [appearance, setAppearance] = useState<Appearance | undefined>(() =>
-    typeof document === "undefined" ? undefined : readAppearance(),
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() =>
-      setAppearance(readAppearance()),
-    );
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "data-theme", "style"],
-    });
-    return () => observer.disconnect();
-  }, []);
-  return appearance;
-}
-
-function readAppearance(): Appearance {
-  const root = document.documentElement;
-  const styles = getComputedStyle(root);
-  const dark = root.classList.contains("dark") || root.dataset.theme === "dark";
-  const color = (name: string, fallback: string) =>
-    toHex(styles.getPropertyValue(name).trim()) ?? fallback;
-  // The site's text colour is --text (shadcn's --foreground as a fallback)
-  const text =
-    toHex(styles.getPropertyValue("--text").trim()) ??
-    color("--foreground", dark ? "#F5F1EA" : "#1F1B16");
-  const background = color("--background", dark ? "#121110" : "#FFFFFF");
-  const primary = color("--primary", "#B4532A");
-  return {
-    theme: dark ? "night" : "stripe",
-    variables: {
-      colorPrimary: primary,
-      colorBackground: background,
-      colorText: text,
-      colorDanger: color("--destructive", "#DC2626"),
-      fontFamily: getComputedStyle(document.body).fontFamily,
-      borderRadius: "12px",
-      spacingUnit: "4px",
-      fontSizeBase: "15px",
-    },
-    rules: {
-      ".Input": {
-        boxShadow: "none",
-        border: `1px solid ${text}26`,
-        padding: "13px 14px",
-      },
-      ".Input:focus": {
-        border: `1px solid ${primary}`,
-        boxShadow: `0 0 0 3px ${primary}33`,
-      },
-      ".Label": { fontWeight: "500", marginBottom: "6px" },
-      ".Tab": { boxShadow: "none", border: `1px solid ${text}26` },
-    },
-  };
-}
-
-/** Any CSS colour (oklch, hsl, a name…) → #rrggbb, by letting a canvas read it */
-function toHex(value: string): string | null {
-  if (!value) return null;
-  const ctx = document
-    .createElement("canvas")
-    .getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.fillStyle = "#010203";
-  ctx.fillStyle = value;
-  if (ctx.fillStyle === "#010203" && value.replace(/\s/g, "") !== "#010203")
-    return null; // not a colour
-  ctx.fillRect(0, 0, 1, 1);
-  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
 /* ───────────── pieces ───────────── */
@@ -1521,7 +1394,7 @@ function TrustLine({ method }: { method: "card" | "cash" }) {
   return (
     <p className="mt-3 text-center text-xs leading-relaxed text-foreground/50">
       {method === "card"
-        ? "Payments are processed securely by Stripe. We never see or store your card number."
+        ? "Card payments are processed securely by Tap Payments. We never see or store your card number."
         : "You'll pay when your order arrives. No card needed."}
     </p>
   );
@@ -1569,9 +1442,11 @@ function Working({ phase }: { phase: Phase }) {
   const text =
     phase === "placing"
       ? "Placing your order…"
-      : phase === "paying"
-        ? "Confirming with your bank…"
-        : "Almost there…";
+      : phase === "redirecting"
+        ? "Taking you to the secure payment page…"
+        : phase === "confirming"
+          ? "Confirming with your bank…"
+          : "Almost there…";
   return (
     <div
       className="fixed inset-0 z-60 grid place-items-center bg-background/70 backdrop-blur-sm transition-opacity starting:opacity-0"

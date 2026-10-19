@@ -638,7 +638,7 @@
   },
   "ordering": {
     "payments": {
-      "methods": ["cod", "stripe", "whish"]
+      "methods": ["cod", "card", "whish"]
     },
     "delivery": {
       "fee": 3,
@@ -729,7 +729,7 @@
         "We use your information because we need it to give you what you asked for (a table, an order, an answer), because you agreed (the newsletter), because we have a legitimate interest in running a safe and well-organised restaurant, or because the law requires it (for example, keeping invoices).",
         "## Who we share it with",
         "We share information only with the trusted services that help us run {brand}, and only what they need:",
-        "- **Payments:** card payments are processed by Stripe, which receives your card details directly. We only see the card brand, the last four digits and whether the payment succeeded.",
+        "- **Payments:** card payments are processed by Tap Payments, which receives your card details directly. We only see the card brand, the last four digits and whether the payment succeeded.",
         "- **Email:** our email provider sends booking confirmations, order receipts and replies on our behalf.",
         "- **Hosting:** our website and database are hosted by cloud providers that store data securely on our behalf.",
         "- **Sign-in with Google:** if you choose it, Google confirms who you are to us.",
@@ -786,7 +786,7 @@
         "## Online orders",
         "- **Prices:** prices are shown on the menu. Unless stated otherwise, VAT is added at checkout as shown. Delivery fees, minimum order amounts and any discounts are shown before you pay.",
         "- **Availability:** dishes can sell out. If something you ordered is unavailable, we will contact you to offer a replacement or a refund for that item.",
-        "- **Payment:** you can pay by card online or in cash on delivery or pickup, depending on what is offered. Card payments are processed securely by Stripe.",
+        "- **Payment:** you can pay by card online or in cash on delivery or pickup, depending on what is offered. Card payments are processed securely by Tap Payments.",
         "- **Times:** delivery and pickup times are estimates. We work hard to meet them, but traffic, weather and busy evenings can cause delays.",
         "- **Delivery:** please make sure your address and phone number are correct and that someone is available to receive the order.",
         "## Cancellations and refunds",

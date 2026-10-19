@@ -15,7 +15,7 @@ import { PRICE_UNIT } from 'lib/constants/menuConstants';
 import { mediaUrl } from 'lib/media-url';
 import { fromMinor, toMinor } from 'lib/money';
 import { addDays } from 'lib/opening-hours';
-import { toStripeAmount, zonedToDate, type OrderType } from 'lib/ordering';
+import { toGatewayAmount, zonedToDate, type OrderType } from 'lib/ordering';
 import type { Env } from 'src/config/env';
 import { MenuItem, type MenuItemDocument } from 'src/schemas/item.schema';
 import {
@@ -40,7 +40,7 @@ import {
   type OrderRow,
   type OrderView,
 } from './orders.service';
-import { StripeService } from './stripe.service';
+import { TapService } from './tap.service';
 
 export type AdminOrderSummary = {
   id: string;
@@ -180,7 +180,7 @@ export class OrdersAdminService {
     private readonly orders: OrdersService,
     private readonly ordering: OrderingConfig,
     private readonly promotions: PromotionsService,
-    private readonly stripe: StripeService,
+    private readonly tap: TapService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -504,7 +504,7 @@ export class OrdersAdminService {
   }
 
   private refundable(order: OrderRow): number {
-    if (order.payment.method !== 'card' || !order.payment.intentId) return 0;
+    if (order.payment.method !== 'card' || !order.payment.chargeId) return 0;
     if (order.payment.status !== 'paid' && order.payment.status !== 'refunded')
       return 0;
     return Math.max(
@@ -523,19 +523,29 @@ export class OrdersAdminService {
     const before = order.payment.refunded ?? 0;
     let refundId: string;
     try {
-      const refund = await this.stripe.refund({
-        intentId: order.payment.intentId!,
-        amount: toStripeAmount(amount, order.currency, PRICE_UNIT),
+      const refund = await this.tap.refund({
+        chargeId: order.payment.chargeId!,
+        amount: toGatewayAmount(amount, order.currency, PRICE_UNIT),
+        currency: order.currency,
         idempotencyKey: `refund-${String(order._id)}-${before}-${amount}`,
-        reason,
+        note: reason,
       });
+      if (
+        ['FAILED', 'DECLINED', 'CANCELLED'].includes(
+          String(refund.status).toUpperCase(),
+        )
+      )
+        throw new Error(
+          refund.response?.message ??
+            `the refund was ${String(refund.status).toLowerCase()}`,
+        );
       refundId = refund.id;
     } catch (error) {
       this.logger.error(
         `Refund on order #${order.number} failed: ${(error as Error).message}`,
       );
       throw new ServiceUnavailableException(
-        `Stripe didn't accept the refund: ${(error as Error).message}`,
+        `Tap didn't accept the refund: ${(error as Error).message}`,
       );
     }
 

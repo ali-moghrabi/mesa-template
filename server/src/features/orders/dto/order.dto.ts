@@ -122,6 +122,12 @@ export class PlaceOrderDto {
   @Matches(/^[A-Za-z0-9-]{16,64}$/)
   idempotencyKey!: string;
 
+  /** The card typed in the checkout, as a one-time Tap token (tok_…). Card numbers never reach MESA. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^tok_[A-Za-z0-9]{6,64}$/)
+  cardToken?: string;
+
   @IsNumber({ maxDecimalPlaces: 4 })
   @Min(0)
   expectedTotal!: number;

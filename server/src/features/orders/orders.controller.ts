@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -10,12 +9,8 @@ import {
   Param,
   Post,
   Query,
-  Req,
-  type RawBodyRequest,
 } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
-import type Stripe from 'stripe';
 import { Authorize } from 'decorators/permission.decorator';
 import {
   CurrentUser,
@@ -23,9 +18,8 @@ import {
 } from 'decorators/current-user.decorator';
 import { PlaceOrderDto } from './dto/order.dto';
 import { OrdersService } from './orders.service';
-import { StripeService } from './stripe.service';
+import { TapService, type TapCharge } from './tap.service';
 
-/** The signed-in person's checkout and orders (any role). */
 @Controller('orders')
 @Authorize()
 @Throttle({ default: { limit: 60, ttl: 60_000 } })
@@ -38,14 +32,14 @@ export class OrdersController {
     return this.orders.checkout(me.id);
   }
 
-  /** POST /api/v1/orders → { order, clientSecret? } (clientSecret for card orders) */
+  /** POST /api/v1/orders → { order, paymentUrl? } (paymentUrl: Tap's payment page, for card orders) */
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   place(@CurrentUser() me: CurrentActor, @Body() dto: PlaceOrderDto) {
     return this.orders.place(me.id, dto);
   }
 
-  /** POST /api/v1/orders/:id/confirm-payment → the order, after reading the payment from Stripe */
+  /** POST /api/v1/orders/:id/confirm-payment → the order, after reading the payment from Tap */
   @Post(':id/confirm-payment')
   @HttpCode(HttpStatus.OK)
   confirm(@CurrentUser() me: CurrentActor, @Param('id') id: string) {
@@ -83,48 +77,35 @@ export class OrdersController {
   }
 }
 
-const INTENT_EVENTS = new Set<Stripe.Event['type']>([
-  'payment_intent.succeeded',
-  'payment_intent.payment_failed',
-  'payment_intent.processing',
-  'payment_intent.canceled',
-]);
-
 /**
- * POST /api/v1/payments/stripe/webhook. Called by Stripe, not by people: no sign-in, but every
- * call must carry Stripe's signature over the raw body (main.ts: NestFactory.create(AppModule, { rawBody: true })).
+ * POST /api/v1/payments/tap/webhook. Called by Tap (post.url of each charge), not by people.
+ * The body is only used for the charge id: OrdersService reads the charge again from Tap, so a
+ * forged call can't mark anything paid. The "hashstring" signature is checked and logged as well.
  */
-@Controller('payments/stripe')
+@Controller('payments/tap')
 @SkipThrottle()
-export class StripeWebhookController {
-  private readonly logger = new Logger(StripeWebhookController.name);
+export class TapWebhookController {
+  private readonly logger = new Logger(TapWebhookController.name);
 
   constructor(
-    private readonly stripe: StripeService,
+    private readonly tap: TapService,
     private readonly orders: OrdersService,
   ) {}
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async webhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature?: string,
+    @Body() body: TapCharge,
+    @Headers('hashstring') hashstring?: string,
   ) {
-    if (!req.rawBody || !signature)
-      throw new BadRequestException('Missing Stripe signature');
-
-    let event: Stripe.Event;
-    try {
-      event = this.stripe.verifyWebhook(req.rawBody, signature);
-    } catch (error) {
-      this.logger.warn(`Rejected a webhook call: ${(error as Error).message}`);
-      throw new BadRequestException('Invalid signature');
-    }
-
-    if (INTENT_EVENTS.has(event.type))
-      await this.orders.handleIntentEvent(
-        event.data.object as Stripe.PaymentIntent,
+    const id = typeof body?.id === 'string' ? body.id : '';
+    if (!this.tap.verifyWebhook(body, hashstring))
+      this.logger.warn(
+        `Tap webhook for ${id || 'nothing'}: the signature didn't check out. Reading it from Tap anyway.`,
       );
+
+    // Charges only (refunds are recorded when they're made from the admin panel)
+    if (/^chg_[A-Za-z0-9]+$/.test(id)) await this.orders.handleChargeEvent(id);
     return { received: true };
   }
 }

@@ -35,8 +35,14 @@ const envSchema = z.object({
   BRAND_TIMEZONE: z.string().optional(),
   BRAND_LOGO_URL: z.string().optional(),
   BRAND_ADDRESS: z.string().optional(),
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Card payments through Tap (sk_test_… / sk_live_…). Empty: card payments are off.
+  TAP_SECRET_KEY: z.string().optional(),
+  // The card field shown inside the checkout (pk_test_… / pk_live_…). Empty: guests pay on Tap's page.
+  TAP_PUBLIC_KEY: z.string().optional(),
+  // The restaurant's Tap merchant id (Tap dashboard), used by the card field
+  TAP_MERCHANT_ID: z.string().optional(),
+  // This API's public address, for Tap's notifications. On Render, RENDER_EXTERNAL_URL is used if empty.
+  API_PUBLIC_URL: z.string().optional(),
   ORDER_SIGNING_SECRET: z.string().optional(),
   SITE_CONFIG_PATH: z.string().optional(),
   ONBOARDING_NOTIFY_EMAIL: z.email().optional(),

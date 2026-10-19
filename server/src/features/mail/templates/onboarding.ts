@@ -32,7 +32,7 @@ const PLAN: Record<OnboardingAnswers['extras']['plan'], string> = {
 };
 const PAY: Record<string, string> = {
   cash: 'Cash',
-  card: 'Card (Stripe)',
+  card: 'Card (Visa / Mastercard)',
   whish: 'Whish',
 };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

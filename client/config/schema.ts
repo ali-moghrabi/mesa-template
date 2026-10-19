@@ -534,7 +534,7 @@ const features = obj({
   instagramFeed: flag,
 });
 
-export const PAYMENT_METHODS = ["cod", "stripe", "whish"] as const;
+export const PAYMENT_METHODS = ["cod", "card", "whish"] as const;
 
 const amount = z.number().min(0).max(100_000);
 
@@ -558,7 +558,7 @@ const ordering = obj({
   payments: obj({
     methods: z
       .array(z.enum(PAYMENT_METHODS))
-      .min(1, 'Add at least one payment method: "cod" or "stripe"')
+      .min(1, 'Add at least one payment method: "cod" or "card"')
       .refine(
         (m) => new Set(m).size === m.length,
         "Each payment method only once",

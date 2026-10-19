@@ -1,17 +1,5 @@
 "use client";
 
-/**
- * One order, in a side panel: what to cook, for whom, where, how it's paid, and what happened.
- *
- *   Everyone (orders:manage)  moves it along (big button), steps back a wrong click, cancels unpaid
- *                             orders, prints the kitchen ticket, writes a team note
- *   Owner (orders:edit)       also changes the dishes (add, remove, quantities, notes), the
- *                             delivery fee and a discount, cancels paid orders and refunds cards
- *
- * Refreshes every 10 seconds (not while editing). Every change sends the order's version, so two
- * people acting at once never overwrite each other.
- */
-
 import Image from "next/image";
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1177,7 +1165,7 @@ function CancelDialog({
                     the card
                   </span>
                   <span className="block text-muted-foreground">
-                    Stripe returns it to the guest in 5–10 days.
+                    The guest&apos;s bank usually shows it within 5–14 days.
                   </span>
                 </span>
               </label>
