@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -118,6 +118,12 @@ export class OnboardingService {
         (r) =>
           r.status === 'rejected' &&
           this.logger.warn(`Onboarding ${id}: ${String(r.reason)}`),
+      ),
+    );
+
+    void this.forwardToHq(id, answers, configDraft, links).catch((error) =>
+      this.logger.error(
+        `Onboarding ${id}: not sent to HQ (${String(error)}). It's still in the email.`,
       ),
     );
 
@@ -248,5 +254,56 @@ export class OnboardingService {
     const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
     const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (!response.ok) throw new Error(`CallMeBot answered ${response.status}`);
+  }
+
+  private async forwardToHq(
+    id: string,
+    answers: OnboardingAnswers,
+    config: string,
+    files: OnboardingFile[],
+  ) {
+    const url = this.config.get<string>('HQ_ONBOARDING_URL');
+    const secret = this.config.get<string>('HQ_ONBOARDING_SECRET');
+    if (!url || !secret) return;
+
+    const body = JSON.stringify({
+      id,
+      submittedAt: new Date().toISOString(),
+      answers,
+      config,
+      files,
+    });
+
+    for (let attempt = 1; ; attempt++) {
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      const signature = `sha256=${createHmac('sha256', secret)
+        .update(`${timestamp}.${body}`)
+        .digest('hex')}`;
+      let retry: boolean;
+      let problem: string;
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-mesa-timestamp': timestamp,
+            'x-mesa-signature': signature,
+          },
+          body,
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (response.ok) {
+          this.logger.log(`Onboarding ${id}: sent to HQ`);
+          return;
+        }
+        retry = response.status >= 500;
+        problem = `HQ answered ${response.status}: ${(await response.text()).slice(0, 200)}`;
+      } catch (error) {
+        retry = true;
+        problem = String(error);
+      }
+      if (!retry || attempt >= 3) throw new Error(problem);
+      await new Promise((resolve) => setTimeout(resolve, attempt * 5_000));
+    }
   }
 }

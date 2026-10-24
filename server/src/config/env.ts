@@ -49,6 +49,8 @@ const envSchema = z.object({
   ONBOARDING_WHATSAPP_PHONE: z.string().optional(),
   CALLMEBOT_API_KEY: z.string().optional(),
   SITES_PATH: z.string().optional(),
+  HQ_ONBOARDING_URL: z.string().optional(),
+  HQ_ONBOARDING_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,4 +1,4 @@
-const S3_FOLDERS = ['menu/', 'tmp/'];
+const S3_FOLDERS = ['menu/', 'tmp/', 'onboarding/'];
 
 export const keyPrefix = () => normalizePrefix(process.env.S3_KEY_PREFIX);
 
