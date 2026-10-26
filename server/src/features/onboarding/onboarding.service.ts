@@ -121,6 +121,7 @@ export class OnboardingService {
       ),
     );
 
+    // HQ gets it too, in the background: the restaurant doesn't wait for it
     void this.forwardToHq(id, answers, configDraft, links).catch((error) =>
       this.logger.error(
         `Onboarding ${id}: not sent to HQ (${String(error)}). It's still in the email.`,
@@ -230,9 +231,8 @@ export class OnboardingService {
     a: OnboardingAnswers,
     fileCount: number,
   ) {
-    const phone = this.config.get<string>('ONBOARDING_WHATSAPP_PHONE');
-    const apiKey = this.config.get<string>('CALLMEBOT_API_KEY');
-    if (!phone || !apiKey) return;
+    const recipients = this.whatsappRecipients();
+    if (!recipients.length) return;
 
     const services = [
       a.services.reservations && 'reservations',
@@ -251,9 +251,44 @@ export class OnboardingService {
       'Full details and config.json are in your email.',
     ].join('\n');
 
-    const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
-    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!response.ok) throw new Error(`CallMeBot answered ${response.status}`);
+    const results = await Promise.allSettled(
+      recipients.map(async ({ phone, apiKey }) => {
+        const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok)
+          throw new Error(`CallMeBot answered ${response.status} for ${phone}`);
+      }),
+    );
+    const failed = results.filter((r) => r.status === 'rejected');
+    if (failed.length)
+      throw new Error(failed.map((r) => String(r.reason)).join('; '));
+  }
+
+  private whatsappRecipients(): { phone: string; apiKey: string }[] {
+    const list = (
+      this.config.get<string>('ONBOARDING_WHATSAPP_RECIPIENTS') ?? ''
+    )
+      .split(',')
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const i = pair.lastIndexOf(':');
+        return i > 0
+          ? { phone: pair.slice(0, i).trim(), apiKey: pair.slice(i + 1).trim() }
+          : null;
+      })
+      .filter(
+        (r): r is { phone: string; apiKey: string } =>
+          !!r && !!r.phone && !!r.apiKey,
+      );
+    const digits = (p: string) => p.replace(/\D/g, '').replace(/^00/, '');
+    const phone = this.config.get<string>('ONBOARDING_WHATSAPP_PHONE')?.trim();
+    const apiKey = this.config.get<string>('CALLMEBOT_API_KEY')?.trim();
+    if (phone && apiKey && !list.some((r) => digits(r.phone) === digits(phone)))
+      list.push({ phone, apiKey });
+    return list;
   }
 
   private async forwardToHq(
