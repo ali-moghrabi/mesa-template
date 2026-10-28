@@ -1,0 +1,160 @@
+.hero-word-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+.hero-word {
+  display: inline-block;
+}
+
+.hero-title {
+  font-family: var(--font-hero), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-variation-settings: "opsz" 96;
+  line-height: 0.92;
+  letter-spacing: -0.032em;
+  text-shadow: 0 2px 40px rgb(0 0 0 / 0.35);
+}
+.hero-accent {
+  font-family: var(--font-hero-accent), "Iowan Old Style", Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.1em;
+  line-height: 0.86;
+  letter-spacing: -0.01em;
+  color: color-mix(in oklab, var(--primary, #c2410c) 80%, white);
+  text-shadow: 0 2px 30px rgb(0 0 0 / 0.45);
+}
+.hero-accent-mask {
+  padding: 0.12em 0.08em 0.1em 0.02em;
+  margin: -0.12em -0.08em -0.1em -0.02em;
+}
+.hero-end {
+  color: color-mix(in oklab, var(--primary, #c2410c) 82%, white);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-aperture {
+    animation: hero-aperture 1.6s cubic-bezier(0.76, 0, 0.24, 1) both;
+  }
+  .hero-zoom {
+    animation: hero-zoom 3.2s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+  }
+  .hero-word {
+    animation: hero-word 1.05s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    animation-delay: calc(var(--i, 0) * 75ms + 520ms);
+  }
+  .hero-in {
+    animation: hero-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+  .hero-kb-a {
+    animation: hero-kb-a var(--kb, 16s) linear both;
+  }
+  .hero-kb-b {
+    animation: hero-kb-b var(--kb, 16s) linear both;
+  }
+  .hero-bar {
+    animation: hero-bar var(--kb, 8s) linear both;
+  }
+  .hero-cue {
+    animation: hero-cue 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .hero-drift {
+      animation: hero-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 100svh;
+    }
+    .hero-recede {
+      animation: hero-recede linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 90svh;
+    }
+  }
+}
+
+@keyframes hero-aperture {
+  from {
+    clip-path: inset(16% 14% 16% 14% round 32px);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 0);
+  }
+}
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.22);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes hero-word {
+  from {
+    transform: translateY(108%) rotate(3deg);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hero-kb-a {
+  from {
+    transform: scale(1.04) translate3d(-1%, 0.5%, 0);
+  }
+  to {
+    transform: scale(1.14) translate3d(1.5%, -1%, 0);
+  }
+}
+@keyframes hero-kb-b {
+  from {
+    transform: scale(1.14) translate3d(1.5%, -0.5%, 0);
+  }
+  to {
+    transform: scale(1.04) translate3d(-1%, 1%, 0);
+  }
+}
+@keyframes hero-bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes hero-cue {
+  0%,
+  100% {
+    transform: translateY(-3px);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateY(4px);
+    opacity: 1;
+  }
+}
+@keyframes hero-drift {
+  to {
+    transform: translate3d(0, 16%, 0) scale(1.06);
+  }
+}
+@keyframes hero-recede {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -8%, 0);
+  }
+}

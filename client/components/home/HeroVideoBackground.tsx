@@ -1,97 +1,62 @@
 "use client";
 
 import Image from "next/image";
-import { Pause, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-
-type Props = {
-  src: string;
-  webm?: string;
-  poster: string;
-};
+import { useHeroMedia } from "./HeroMedia";
 
 type NavigatorWithConnection = Navigator & {
   connection?: { saveData?: boolean };
 };
 
-export function HeroVideoBackground({ src, webm, poster }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [playing, setPlaying] = useState(false);
+export function HeroVideoBackground() {
+  const { video, webm, poster, setPlaying, videoRef: ref } = useHeroMedia();
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = true;
-
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const el = ref.current;
+    if (!el) return;
+    el.muted = true;
     const saveData =
       (navigator as NavigatorWithConnection).connection?.saveData === true;
-    if (reducedMotion || saveData) return;
-
-    video.play().catch(() => {});
-  }, []);
-
-  const toggle = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.paused) {
-      video.play().catch(() => {});
-    } else {
-      video.pause();
-    }
-  };
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still || saveData) return;
+    el.play().catch(() => {});
+  }, [ref]);
 
   return (
     <>
-      <div className="absolute inset-0 -z-10">
+      {poster && (
         <Image
-          src={poster}
+          src={`/${poster}`}
           alt=""
           fill
           preload
           sizes="100vw"
           className="object-cover"
         />
+      )}
+      {video && (
         <video
-          ref={videoRef}
+          ref={ref}
           muted
           loop
           playsInline
           preload="auto"
-          aria-hidden="true"
           tabIndex={-1}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
+          onError={() => setPlaying(false)}
           onPlaying={() => setShown(true)}
           className={cn(
-            "absolute inset-0 size-full object-cover transition-opacity duration-700",
+            "absolute inset-0 size-full object-cover transition-opacity duration-1000 select-none",
             shown ? "opacity-100" : "opacity-0",
           )}
         >
-          {webm && <source src={webm} type="video/webm" />}
-          <source src={src} type="video/mp4" />
+          {webm && <source src={`/${webm}`} type="video/webm" />}
+          <source src={`/${video}`} type="video/mp4" />
         </video>
-      </div>
-
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={
-          playing ? "Pause background video" : "Play background video"
-        }
-        className="absolute right-(--pad) bottom-[calc(var(--pad)*0.6)] z-20 grid size-11 place-items-center rounded-full border border-white/40 bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent cursor-pointer"
-      >
-        {playing ? (
-          <Pause aria-hidden="true" className="size-4" />
-        ) : (
-          <Play aria-hidden="true" className="size-4" />
-        )}
-      </button>
+      )}
     </>
   );
 }

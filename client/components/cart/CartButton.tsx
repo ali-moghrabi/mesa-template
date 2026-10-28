@@ -89,7 +89,7 @@ export function CartButton({ currency, pricingNote, className }: Props) {
         {count > 0 && (
           <span
             key={count}
-            className="absolute -top-0.5 -right-0.5 grid h-4.75 min-w-4.75 place-items-center rounded-full bg-primary px-1 text-[11px] leading-none font-bold text-primary-foreground tabular-nums ring-2 ring-background transition duration-300 starting:scale-50"
+            className="absolute -top-0.5 -right-0.5 grid h-4.5 min-w-4.5 place-items-center rounded-full bg-primary px-1 text-[11px] leading-none font-semibold text-white tabular-nums ring-2 ring-primary/40 backdrop-blur-md transition duration-300 starting:scale-50"
           >
             {count > 99 ? "99+" : count}
           </span>
