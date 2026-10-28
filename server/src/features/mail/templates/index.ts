@@ -7,3 +7,4 @@ export * from './contact-message';
 export * from './newsletter';
 export * from './email-verification';
 export * from './onboarding';
+export * from './security-notice';

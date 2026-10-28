@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { forwardIpHeaders } from "@/lib/api-forward";
+import { forwardIpHeaders, visitorIp } from "@/lib/api-forward";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -34,10 +34,7 @@ async function post(
   body: unknown,
 ): Promise<{ status: number; data: { message?: string | string[] } | null }> {
   const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    undefined;
+  const ip = visitorIp(h);
   const response = await fetch(apiUrl(path), {
     method: "POST",
     headers: {

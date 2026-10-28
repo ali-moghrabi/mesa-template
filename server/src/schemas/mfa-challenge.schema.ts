@@ -28,6 +28,9 @@ export class MfaChallenge {
   @Prop({ type: Number, default: 0 })
   attempts!: number;
 
+  @Prop({ type: Number, default: 0 })
+  tokenVersion!: number;
+
   @Prop({ type: Date, required: true })
   expiresAt!: Date;
 }

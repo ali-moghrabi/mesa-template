@@ -1,6 +1,12 @@
 import {
   Body,
+  CanActivate,
   Controller,
+  ExecutionContext,
+  Injectable,
+  NotFoundException,
+  PayloadTooLargeException,
+  UseGuards,
   HttpCode,
   HttpStatus,
   Post,
@@ -15,9 +21,34 @@ import {
   type OnboardingUploads,
 } from './onboarding.service';
 
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 60 * 1024 * 1024;
+
+/**
+ * Runs before the upload is read. The form only exists on mesa-template.store: on every
+ * restaurant's own API it's off (404), so nobody can use it to send email from MESA's sender.
+ */
+@Injectable()
+class OnboardingOpenGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    if (process.env.ONBOARDING_ENABLED !== 'true')
+      throw new NotFoundException();
+    const req = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string | undefined> }>();
+    const length = Number(req.headers['content-length']);
+    if (!Number.isFinite(length) || length <= 0)
+      throw new PayloadTooLargeException('Send the form from the website.');
+    if (length > MAX_REQUEST_BYTES)
+      throw new PayloadTooLargeException(
+        'The files are too big together. Send fewer or smaller photos.',
+      );
+    return true;
+  }
+}
 
 @Controller('onboarding')
+@UseGuards(OnboardingOpenGuard)
 export class OnboardingController {
   constructor(private readonly onboarding: OnboardingService) {}
 

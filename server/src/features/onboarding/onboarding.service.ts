@@ -182,6 +182,9 @@ export class OnboardingService {
             Key: `${this.prefix}${key}`,
             Body: buffer,
             ContentType: contentType,
+            ...(contentType === 'image/svg+xml' && {
+              ContentDisposition: `attachment; filename="${name}"`,
+            }),
           }),
         );
         links.push({

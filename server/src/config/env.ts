@@ -14,23 +14,15 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECRET: z.string().min(32, 'Use at least 32 random characters'),
-  // How many proxies sit in front of the API (Render). Find it with SHOW_CLIENT_IP below.
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
-  // Shared with the website's server (API_PROXY_SECRET there), so it can pass the visitor's IP
   INTERNAL_PROXY_SECRET: z
     .string()
     .min(32, 'Use at least 32 random characters')
     .optional(),
-  // "true" opens GET /api/v1/auth/ip for a moment, to check TRUST_PROXY. Remove afterwards.
   SHOW_CLIENT_IP: z.enum(['true', 'false']).optional(),
-  // Encrypts the authenticator-app secrets in the database. 32+ random characters.
-  // Never change it once set: everyone would have to set up their authenticator again.
   MFA_ENCRYPTION_KEY: z.string().min(32, 'Use at least 32 random characters'),
-  // Roles that must use two-step sign-in. Empty: staff,manager,admin. "none": nobody.
   MFA_REQUIRED_ROLES: z.string().optional(),
-  // The name shown in the authenticator app (defaults to BRAND_NAME)
   MFA_ISSUER: z.string().max(40).optional(),
-  // "off" skips the breached-password check (on by default)
   PASSWORD_BREACH_CHECK: z.enum(['on', 'off']).optional(),
   JWT_ACCESS_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'Use at least 32 random characters'),
@@ -55,14 +47,12 @@ const envSchema = z.object({
   BRAND_ADDRESS: z.string().optional(),
   // Card payments through Tap (sk_test_… / sk_live_…). Empty: card payments are off.
   TAP_SECRET_KEY: z.string().optional(),
-  // The card field shown inside the checkout (pk_test_… / pk_live_…). Empty: guests pay on Tap's page.
   TAP_PUBLIC_KEY: z.string().optional(),
-  // The restaurant's Tap merchant id (Tap dashboard), used by the card field
   TAP_MERCHANT_ID: z.string().optional(),
-  // This API's public address, for Tap's notifications. On Render, RENDER_EXTERNAL_URL is used if empty.
   API_PUBLIC_URL: z.string().optional(),
   ORDER_SIGNING_SECRET: z.string().optional(),
   SITE_CONFIG_PATH: z.string().optional(),
+  ONBOARDING_ENABLED: z.enum(['true', 'false']).optional(),
   ONBOARDING_NOTIFY_EMAIL: z.email().optional(),
   ONBOARDING_WHATSAPP_PHONE: z.string().optional(),
   CALLMEBOT_API_KEY: z.string().optional(),
@@ -83,6 +73,20 @@ export function validateEnv(config: Record<string, unknown>): Env {
     throw new Error(`Invalid environment variables:\n${issues}`);
   }
   const env = result.data;
+  if (env.NODE_ENV === 'production') {
+    if (env.MFA_REQUIRED_ROLES?.trim().toLowerCase() === 'none')
+      console.warn(
+        '[env] MFA_REQUIRED_ROLES=none: the admin panel opens without two-step sign-in. Only use this for a public demo.',
+      );
+    if (env.ORDER_SIGNING_SECRET && env.ORDER_SIGNING_SECRET.length < 32)
+      console.warn(
+        '[env] ORDER_SIGNING_SECRET is shorter than 32 characters: use a long random value.',
+      );
+    if (!env.INTERNAL_PROXY_SECRET)
+      console.warn(
+        '[env] INTERNAL_PROXY_SECRET is not set: visitors may share one rate limit (see the setup notes).',
+      );
+  }
   const secrets = [
     env.JWT_ACCESS_SECRET,
     env.JWT_REFRESH_SECRET,

@@ -525,7 +525,7 @@ function ConfirmChange({
     } else {
       title = `Make ${name} ${ROLE_INFO[c.role].article}?`;
       description = up
-        ? "It takes effect on their next click."
+        ? "They're signed out and sign in again, with two-step sign-in, to use their new role."
         : "It takes effect on their next click. Nothing they made is deleted.";
       confirmLabel = up
         ? `Promote to ${ROLE_INFO[c.role].label}`

@@ -53,6 +53,9 @@ GOOGLE_CLIENT_SECRET=
 SITES_PATH=../client/sites
 # Every client's preview address, before their own domain is ready: <slug>.<this>
 PREVIEW_DOMAIN=mesa-template.store
+# How many proxies Render puts in front of the API (find it once on the demo API with
+# SHOW_CLIENT_IP=true, see the setup notes). Same for every client on Render.
+TRUST_PROXY=
 `;
 
 function readEnv(path: string): Record<string, string> {
@@ -133,12 +136,22 @@ for (const [path, template, values] of [
 
 const sharedWeb = readEnv(sharedWebPath);
 const sharedApi = readEnv(sharedApiPath);
+// Files made before TRUST_PROXY was added to the template: add the line once
+if (!("TRUST_PROXY" in sharedApi)) {
+  writeFileSync(
+    sharedApiPath,
+    `${readFileSync(sharedApiPath, "utf8").replace(/\s*$/, "\n")}# How many proxies Render puts in front of the API (same for every client)\nTRUST_PROXY=\n`,
+  );
+  sharedApi.TRUST_PROXY = "";
+}
 const missing = [
   "MONGODB_CLUSTER_URI",
   "MAIL_FROM_EMAIL",
   "S3_BUCKET",
   "AWS_REGION",
   "MEDIA_BASE_URL",
+  // without it every visitor shares one rate limit (they all look like Render's proxy)
+  "TRUST_PROXY",
 ].filter((k) => !sharedApi[k]);
 const looked = `Local settings read from:\n${[...webEnvFiles, ...apiEnvFiles].map((p) => `    ${p}`).join("\n") || "    (no .env files found next to client/ or in ../server/)"}`;
 
@@ -234,7 +247,6 @@ const repairs: string[] = [];
       );
   }
 
-  // Social icons need at least one social link
   const socials = g("business.socials");
   if (!Array.isArray(socials) || socials.length === 0) {
     const footer = g("layout.footer") as Json | undefined;
@@ -290,7 +302,6 @@ if (existsSync(join(siteDir, "config.json")) && !force)
     `sites/${slug} already exists. Use another --slug, or --force to overwrite.`,
   );
 
-// Their domain: --domain, else the form's (seo.siteUrl), else a preview subdomain of yours
 const demoUrl = (() => {
   try {
     return str(
@@ -318,7 +329,6 @@ const webUrl = domainFlag
 const apiUrl = (flag("api") ?? `https://mesa-${slug}-api.onrender.com`)
   .replace(/\/+$/, "")
   .replace(/\/api\/v1$/, "");
-// The web calls the API under /api/v1 (same as NEXT_PUBLIC_API_URL locally)
 const apiBase = `${apiUrl}/api/v1`;
 
 const address = get(raw, "business.address") as Json | undefined;
@@ -330,8 +340,7 @@ const addressLine = address
   : "";
 const logo = str(get(raw, "brand.logo.light"));
 const secret = () => randomBytes(48).toString("base64url");
-
-/* ───────────── write everything ───────────── */
+const proxySecret = secret();
 
 mkdirSync(join(siteDir, "public"), { recursive: true });
 writeFileSync(
@@ -361,7 +370,7 @@ const {
   ...apiShared
 } = sharedApi;
 void PREVIEW_DOMAIN;
-// One database per client on the shared cluster: mesa_<slug>
+
 const mongo = (() => {
   try {
     const u = new URL(MONGODB_CLUSTER_URI);
@@ -382,6 +391,7 @@ writeFileSync(
     ["API_URL", apiBase],
     ["NEXT_PUBLIC_API_URL", apiBase],
     ["IRON_SESSION_PASSWORD", secret()],
+    ["API_PROXY_SECRET", proxySecret],
     ...Object.entries(sharedWeb),
   ]),
 );
@@ -402,6 +412,8 @@ writeFileSync(
     ["JWT_ACCESS_SECRET", secret()],
     ["JWT_REFRESH_SECRET", secret()],
     ["ORDER_SIGNING_SECRET", secret()],
+    ["INTERNAL_PROXY_SECRET", proxySecret],
+    ["MFA_ENCRYPTION_KEY", secret()],
     ["MAIL_FROM", `"${name.replace(/"/g, "")} <${MAIL_FROM_EMAIL}>"`],
     ["BRAND_NAME", `"${name.replace(/"/g, "")}"`],
     ["BRAND_COLOR", str(get(raw, "theme.colors.light.primary"))],
@@ -409,7 +421,6 @@ writeFileSync(
     ["BRAND_ADDRESS", `"${addressLine.replace(/"/g, "")}"`],
     ["BRAND_LOGO_URL", logo ? `${webUrl}/${logo}` : ""],
     ...Object.entries(apiShared),
-    // Tap sends payment notifications here (Render's own address works too, when this is empty)
     ["API_PUBLIC_URL", apiUrl],
     [
       "# Card payments: the restaurant's own Tap account. No secret key: cards are off",

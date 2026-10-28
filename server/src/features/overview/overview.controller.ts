@@ -7,6 +7,7 @@ import {
   type CurrentActor,
 } from 'decorators/current-user.decorator';
 import { JwtAuthGuard } from 'guards/jwt.guard';
+import { TeamMfaGuard } from 'guards/team-mfa.guard';
 import {
   OVERVIEW_RANGES,
   OverviewService,
@@ -26,7 +27,7 @@ export class OverviewQuery {
  * block the person isn't allowed to see (customers get 403).
  */
 @Controller('admin/overview')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TeamMfaGuard)
 export class OverviewController {
   constructor(private readonly overview: OverviewService) {}
 

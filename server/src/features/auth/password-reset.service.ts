@@ -160,8 +160,12 @@ export class PasswordResetService {
     await Promise.all([
       this.sessionModel.deleteMany({ userId: user._id }),
       this.resetModel.deleteMany({ userId: user._id }),
-      this.loginAttempts.clear(user.email, user.username),
-      this.twoFactor.forgetDevices(user._id),
+      this.loginAttempts.clear(
+        user.email,
+        user.username,
+        `account:${String(user._id)}`,
+      ),
+      this.twoFactor.revokeAccess(user._id),
     ]);
     this.logger.log(`Password reset for user ${String(user._id)}`);
   }

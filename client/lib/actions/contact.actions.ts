@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { forwardIpHeaders } from "@/lib/api-forward";
+import { forwardIpHeaders, visitorIp } from "@/lib/api-forward";
 import {
   contactSchema,
   type ContactResult,
@@ -39,10 +39,7 @@ export async function sendContactMessage(
     };
 
   const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    undefined;
+  const ip = visitorIp(h);
   const { phone, subject, ...rest } = parsed.data;
 
   try {

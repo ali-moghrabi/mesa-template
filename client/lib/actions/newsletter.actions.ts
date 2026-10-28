@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { forwardIpHeaders } from "@/lib/api-forward";
+import { forwardIpHeaders, visitorIp } from "@/lib/api-forward";
 import { getUserSession } from "@/lib/auth/get-user";
 import { adminFetch } from "@/admin/lib/menu/api";
 import {
@@ -31,10 +31,7 @@ async function call(
   init: { method: "GET" | "POST"; body?: unknown },
 ): Promise<Response> {
   const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    undefined;
+  const ip = visitorIp(h);
   return fetch(`${base()}${path}`, {
     method: init.method,
     headers: {

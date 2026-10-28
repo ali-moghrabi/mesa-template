@@ -158,19 +158,27 @@ export class AuthService {
         )
         .select('+password +tokenVersion');
 
+      // The lock also counts per account, so trying the email and then the username doesn't
+      // give a guesser twice the tries
+      const accountKey = user ? `account:${String(user._id)}` : null;
+      if (accountKey) await this.loginAttempts.assertNotLocked(accountKey);
+
       const match = await bcrypt.compare(
         loginDto.password,
         user?.password ?? this.dummyHash,
       );
 
       if (!user || !match) {
-        await this.loginAttempts.recordFailure(identifier);
+        await Promise.all([
+          this.loginAttempts.recordFailure(identifier),
+          accountKey && this.loginAttempts.recordFailure(accountKey),
+        ]);
         throw new UnauthorizedException('Invalid credentials');
       }
 
       if (!user.isActive) throw new ForbiddenException('Account is disabled');
 
-      await this.loginAttempts.clear(identifier);
+      await this.loginAttempts.clear(identifier, accountKey ?? undefined);
       return this.afterFirstStep(user, meta, trustedDevice);
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -256,9 +264,15 @@ export class AuthService {
       },
     );
     if (unverified)
-      await this.sessionModel.deleteMany({ userId: existing._id });
+      await Promise.all([
+        this.sessionModel.deleteMany({ userId: existing._id }),
+        // whatever two-step sign-in the squatter set up goes too, with their half-done
+        // sign-ins and trusted browsers: the real owner starts clean (and sets it up again
+        // at this sign-in if their role requires it)
+        this.twoFactor.reset(existing._id),
+      ]);
     this.logger.log(
-      `Google linked to existing account ${String(existing._id)}${unverified ? ' (unverified email: password removed, sessions ended)' : ''}`,
+      `Google linked to existing account ${String(existing._id)}${unverified ? ' (unverified email: password, 2FA and sessions removed)' : ''}`,
     );
     const fresh = await this.userModel
       .findById(existing._id)
@@ -563,7 +577,7 @@ export class AuthService {
     await Promise.all([
       this.sessionModel.deleteMany({ userId }),
       this.userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } }),
-      this.twoFactor.forgetDevices(userId),
+      this.twoFactor.revokeAccess(userId),
     ]);
   }
 

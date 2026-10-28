@@ -79,10 +79,11 @@ type MfaRow = {
   mfaLastStep?: number;
   mfaRecoveryCodes?: string[];
   mfaLockedUntil?: Date;
+  tokenVersion?: number;
 };
 
 const MFA_FIELDS =
-  'email role isActive mfaEnabled mfaEnabledAt +mfaSecret +mfaPendingSecret +mfaPendingAt +mfaLastStep +mfaRecoveryCodes +mfaLockedUntil';
+  'email role isActive mfaEnabled mfaEnabledAt +mfaSecret +mfaPendingSecret +mfaPendingAt +mfaLastStep +mfaRecoveryCodes +mfaLockedUntil +tokenVersion';
 
 const sha256 = (value: string) =>
   createHash('sha256').update(value).digest('hex');
@@ -120,14 +121,21 @@ export class TwoFactorService {
   }
 
   async gate(
-    user: { _id: Types.ObjectId; role: Role; mfaEnabled?: boolean },
+    user: {
+      _id: Types.ObjectId;
+      role: Role;
+      mfaEnabled?: boolean;
+      tokenVersion?: number;
+    },
     trustedToken: string | undefined,
   ): Promise<TwoFactorGate | null> {
+    const tv = user.tokenVersion ?? 0;
     if (user.mfaEnabled) {
       if (await this.isTrusted(user._id, trustedToken)) return null;
-      return this.newChallenge(user._id, 'verify');
+      return this.newChallenge(user._id, 'verify', tv);
     }
-    if (mfaRequiredFor(user.role)) return this.newChallenge(user._id, 'setup');
+    if (mfaRequiredFor(user.role))
+      return this.newChallenge(user._id, 'setup', tv);
     return null;
   }
 
@@ -136,6 +144,7 @@ export class TwoFactorService {
     if (challenge.purpose !== 'setup')
       throw new BadRequestException('Two-step sign-in is already set up.');
     const user = await this.row(challenge.userId);
+    await this.assertCurrent(challenge, user);
 
     let secret: string;
     if (challenge.pendingSecret) secret = unseal(challenge.pendingSecret);
@@ -163,6 +172,7 @@ export class TwoFactorService {
     const user = await this.row(challenge.userId);
     if (user.isActive === false)
       throw new UnauthorizedException('This account is disabled');
+    await this.assertCurrent(challenge, user);
     this.assertNotLocked(user);
 
     const counted = await this.challengeModel.findOneAndUpdate(
@@ -277,6 +287,19 @@ export class TwoFactorService {
   /** Every trusted browser asks for a code again */
   async forgetDevices(userId: string | Types.ObjectId): Promise<void> {
     await this.deviceModel.deleteMany({ userId: new Types.ObjectId(userId) });
+  }
+
+  /**
+   * Access was revoked (password reset or changed, signed out everywhere, a stolen refresh
+   * token, account disabled): trusted browsers must show a code again, and any sign-in that
+   * got past the password but not the code yet can't be finished any more.
+   */
+  async revokeAccess(userId: string | Types.ObjectId): Promise<void> {
+    const id = new Types.ObjectId(userId);
+    await Promise.all([
+      this.deviceModel.deleteMany({ userId: id }),
+      this.challengeModel.deleteMany({ userId: id }),
+    ]);
   }
 
   /** An owner resets it for a team member who lost their phone (they set it up again) */
@@ -432,6 +455,7 @@ export class TwoFactorService {
   private async newChallenge(
     userId: Types.ObjectId,
     purpose: 'verify' | 'setup',
+    tokenVersion: number,
   ): Promise<TwoFactorGate> {
     const challenge = newToken();
     const expiresAt = new Date(Date.now() + CHALLENGE_MS);
@@ -440,8 +464,20 @@ export class TwoFactorService {
       tokenHash: sha256(challenge),
       purpose,
       expiresAt,
+      tokenVersion,
     });
     return { step: purpose, challenge, expiresAt };
+  }
+
+  private async assertCurrent(
+    challenge: { _id: Types.ObjectId; tokenVersion?: number },
+    user: MfaRow,
+  ) {
+    if ((challenge.tokenVersion ?? 0) === (user.tokenVersion ?? 0)) return;
+    await this.challengeModel.deleteOne({ _id: challenge._id });
+    throw new UnauthorizedException(
+      'This sign-in timed out. Please sign in again.',
+    );
   }
 
   private async findChallenge(token: string) {

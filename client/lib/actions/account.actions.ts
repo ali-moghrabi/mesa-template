@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { forwardIpHeaders } from "@/lib/api-forward";
+import { forwardIpHeaders, visitorIp } from "@/lib/api-forward";
 import { revalidatePath } from "next/cache";
 import {
   ACCESS_TOKEN_COOKIE,
@@ -99,10 +99,7 @@ async function verifyCall(
     };
   try {
     const h = await headers();
-    const ip =
-      h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      h.get("x-real-ip") ||
-      undefined;
+    const ip = visitorIp(h);
     const response = await fetch(`${apiBase()}${path}`, {
       method,
       headers: {
@@ -209,14 +206,11 @@ async function clearSessionCookies() {
   store.delete({ name: sessionOptions.cookieName, path: "/" });
 }
 
-/* ───────────── two-step sign-in ───────────── */
-
 const codeProblem = (code: unknown) =>
   typeof code !== "string" || code.trim().length < 6 || code.length > 32
     ? invalid({ code: "Enter the 6-digit code from your app" })
     : null;
 
-/** Starts setup. When it's already on (moving to a new phone), a current code is needed. */
 export async function startTwoFactor(
   code?: string,
 ): Promise<ApiResult<SetupInfo>> {
@@ -231,7 +225,6 @@ export async function startTwoFactor(
   });
 }
 
-/** Confirms the app with its first code → the backup codes (shown once) */
 export async function enableTwoFactor(
   code: string,
 ): Promise<ApiResult<{ recoveryCodes: string[] }>> {

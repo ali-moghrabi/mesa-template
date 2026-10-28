@@ -238,6 +238,12 @@ export class TeamService {
       );
       throw lastAdmin();
     }
+
+    // Promoted: they sign in again, so a session that never passed two-step sign-in doesn't
+    // carry straight into the new role (the new sign-in asks for it, or sets it up)
+    if ((ROLE_RANK[role] ?? 0) > (ROLE_RANK[target.role] ?? 0))
+      await this.signOut(target._id);
+
     return this.toMember(updated, actor);
   }
 
@@ -273,7 +279,7 @@ export class TeamService {
       );
       throw lastAdmin();
     }
-    if (!isActive) await this.sessionModel.deleteMany({ userId: target._id });
+    if (!isActive) await this.signOut(target._id);
 
     return this.toMember(updated, actor);
   }
@@ -293,6 +299,15 @@ export class TeamService {
       this.sessionModel.deleteMany({ userId: target._id }),
     ]);
     return this.toMember({ ...target, mfaEnabled: false }, actor);
+  }
+
+  /** Ends every session, trusted browser and half-done sign-in of this person */
+  private async signOut(userId: Types.ObjectId) {
+    await Promise.all([
+      this.userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } }),
+      this.sessionModel.deleteMany({ userId }),
+      this.twoFactor.revokeAccess(userId),
+    ]);
   }
 
   private async findTarget(id: string): Promise<UserRow> {

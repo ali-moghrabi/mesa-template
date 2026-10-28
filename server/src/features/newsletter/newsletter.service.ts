@@ -242,6 +242,7 @@ export class NewsletterService {
 
   async myStatus(userId: string): Promise<MyNewsletter> {
     const email = await this.emailOf(userId);
+    if (!email) return { status: 'none' };
     const row = await this.subscriberModel
       .findOne({ email }, { status: 1 })
       .lean<{ status: SubscriberStatus }>();
@@ -250,6 +251,10 @@ export class NewsletterService {
 
   async unsubscribeMe(userId: string): Promise<MyNewsletter> {
     const email = await this.emailOf(userId);
+    if (!email)
+      throw new ForbiddenException(
+        'Verify your email address first, from your account page.',
+      );
     await this.subscriberModel.updateOne(
       { email, status: { $ne: 'unsubscribed' } },
       {
@@ -264,12 +269,12 @@ export class NewsletterService {
     };
   }
 
-  private async emailOf(userId: string): Promise<string> {
+  private async emailOf(userId: string): Promise<string | null> {
     const user = await this.userModel
-      .findById(userId, { email: 1 })
-      .lean<{ email: string }>();
+      .findById(userId, { email: 1, isEmailVerified: 1 })
+      .lean<{ email: string; isEmailVerified?: boolean }>();
     if (!user) throw new NotFoundException('Account not found');
-    return user.email.toLowerCase();
+    return user.isEmailVerified ? user.email.toLowerCase() : null;
   }
 
   private async byToken(

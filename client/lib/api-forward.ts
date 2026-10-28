@@ -18,7 +18,8 @@ export function forwardIpHeaders(
 export function visitorIp(h: Headers): string | undefined {
   return (
     h.get("x-real-ip")?.trim() ||
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-forwarded-for")?.split(",").at(-1)?.trim() ||
     undefined
   );
 }

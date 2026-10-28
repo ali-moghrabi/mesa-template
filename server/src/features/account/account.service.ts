@@ -1,5 +1,6 @@
 import {
   ForbiddenException,
+  Logger,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { Session, type SessionDocument } from 'src/schemas/session.schema';
 import { User, type UserDocument } from 'src/schemas/user.schema';
 import type { UpdateAccountDto } from './dto/account.dto';
 import { passwordProblem } from 'lib/security/password-policy';
+import { MailService } from 'src/features/mail/mail.service';
+import { passwordNoticeEmail } from 'src/features/mail/templates';
 import {
   TwoFactorService,
   type SetupInfo,
@@ -80,7 +83,10 @@ export class AccountService {
     private readonly sessionModel: Model<SessionDocument>,
     private readonly verification: EmailVerificationService,
     private readonly twoFactor: TwoFactorService,
+    private readonly mail: MailService,
   ) {}
+
+  private readonly logger = new Logger(AccountService.name);
 
   async get(userId: string): Promise<Account> {
     const account = {
@@ -143,10 +149,16 @@ export class AccountService {
       { _id: row._id },
       { $set: { [PASSWORD_FIELD]: hash } },
     );
-    await this.sessionModel.deleteMany({
-      userId: row._id,
-      ...(currentSessionId && { _id: { $ne: currentSessionId } }),
-    });
+    // Same as a reset, minus this device: other sessions end, trusted browsers must show a
+    // code again, and a sign-in waiting for its code can't be finished
+    await Promise.all([
+      this.sessionModel.deleteMany({
+        userId: row._id,
+        ...(currentSessionId && { _id: { $ne: currentSessionId } }),
+      }),
+      this.twoFactor.revokeAccess(row._id),
+    ]);
+    this.notifyPasswordChange(row, row.password ? 'changed' : 'added');
     return { ok: true };
   }
 
@@ -183,7 +195,7 @@ export class AccountService {
   }
 
   async signOutEverywhere(userId: string): Promise<{ ok: true }> {
-    await this.twoFactor.forgetDevices(userId);
+    await this.twoFactor.revokeAccess(userId);
     await this.userModel.updateOne(
       { _id: userId },
       { $inc: { tokenVersion: 1 } },
@@ -210,6 +222,33 @@ export class AccountService {
     await this.sessionModel.deleteMany({ userId: row._id });
     await this.userModel.deleteOne({ _id: row._id });
     return { ok: true };
+  }
+
+  /** An email to the account, so a password can't be added or changed quietly by a stranger */
+  private notifyPasswordChange(
+    row: { email: string; firstName: string },
+    kind: 'added' | 'changed',
+  ) {
+    const brand = this.mail.brand();
+    let at: string;
+    try {
+      at = `${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: brand.timezone }).format(new Date())} (${brand.timezone})`;
+    } catch {
+      at = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' (UTC)';
+    }
+    void this.mail
+      .send(
+        row.email,
+        passwordNoticeEmail(brand, {
+          firstName: row.firstName,
+          kind,
+          at,
+          resetLink: `${brand.webUrl}/forgot-password`,
+        }),
+      )
+      .catch((error: unknown) =>
+        this.logger.warn(`Password notice email failed: ${String(error)}`),
+      );
   }
 
   private async withPassword(userId: string): Promise<AccountRow> {

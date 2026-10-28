@@ -16,3 +16,7 @@ export function mfaRequiredRoles(): readonly Role[] {
 
 export const mfaRequiredFor = (role: Role | undefined) =>
   !!role && mfaRequiredRoles().includes(role);
+
+export const mfaMissing = (
+  user: { role?: Role; mfaEnabled?: boolean } | undefined,
+) => !!user && mfaRequiredFor(user.role) && user.mfaEnabled !== true;

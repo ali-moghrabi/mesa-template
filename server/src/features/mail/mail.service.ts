@@ -58,7 +58,7 @@ export class MailService {
     await transport.sendMail({
       from: mailFrom(this.config),
       to,
-      subject: email.subject,
+      subject: email.subject.replace(/[\r\n\t]+/g, ' ').trim(),
       html: email.html,
       text: email.text,
       ...(replyTo && { replyTo }),
