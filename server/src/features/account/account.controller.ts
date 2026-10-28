@@ -20,20 +20,15 @@ import { AccountService } from './account.service';
 import {
   ChangePasswordDto,
   DeleteAccountDto,
+  DisableTwoFactorDto,
+  StartTwoFactorDto,
+  TwoFactorCodeDto,
   UpdateAccountDto,
   VerifyTokenDto,
 } from './dto/account.dto';
 import { EmailVerificationService } from './email-verification.service';
+import { clientIp } from 'lib/security/client-ip';
 
-const clientIp = (req: Request) =>
-  (req.headers['x-forwarded-for'] as string | undefined)
-    ?.split(',')[0]
-    ?.trim() || req.ip;
-
-/**
- * The signed-in person's own account (the website's /account page). Any role.
- * Everything acts on the user from the token, never on an id from the request.
- */
 @Controller('account')
 @Authorize()
 export class AccountController {
@@ -77,7 +72,64 @@ export class AccountController {
       me.id,
       dto.currentPassword,
       dto.newPassword,
+      me.sessionId,
     );
+  }
+
+  /* ── Two-step sign-in (authenticator app). The state comes with GET /account. ── */
+
+  /**
+   * POST /api/v1/account/2fa/setup { code? } → { secret, uri, issuer, account }
+   * Starts setup. When it's already on (moving to a new phone), a current code is required.
+   */
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  startTwoFactor(
+    @CurrentUser() me: CurrentActor,
+    @Body() dto: StartTwoFactorDto,
+  ) {
+    return this.account.startTwoFactor(me.id, dto.code);
+  }
+
+  /** POST /api/v1/account/2fa/enable { code } → { recoveryCodes } (shown once) */
+  @Post('2fa/enable')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  enableTwoFactor(
+    @CurrentUser() me: CurrentActor,
+    @Body() dto: TwoFactorCodeDto,
+  ) {
+    return this.account.enableTwoFactor(me.id, dto.code);
+  }
+
+  /** POST /api/v1/account/2fa/disable { code, password? } · 409 when the role requires it */
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  disableTwoFactor(
+    @CurrentUser() me: CurrentActor,
+    @Body() dto: DisableTwoFactorDto,
+  ) {
+    return this.account.disableTwoFactor(me.id, dto.code, dto.password);
+  }
+
+  /** POST /api/v1/account/2fa/recovery-codes { code } → { recoveryCodes } (the old ones stop working) */
+  @Post('2fa/recovery-codes')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  newRecoveryCodes(
+    @CurrentUser() me: CurrentActor,
+    @Body() dto: TwoFactorCodeDto,
+  ) {
+    return this.account.newRecoveryCodes(me.id, dto.code);
+  }
+
+  /** POST /api/v1/account/2fa/forget-devices → every trusted browser asks for a code again */
+  @Post('2fa/forget-devices')
+  @HttpCode(HttpStatus.OK)
+  forgetTrustedDevices(@CurrentUser() me: CurrentActor) {
+    return this.account.forgetTrustedDevices(me.id);
   }
 
   /** POST /api/v1/account/sign-out-everywhere → every session ends, this one too */

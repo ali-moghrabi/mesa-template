@@ -3,6 +3,7 @@ import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
 } from "@/constants/constants";
+import { forwardIpHeaders, visitorIp } from "@/lib/api-forward";
 
 const TIMEOUT_MS = 4000;
 
@@ -20,19 +21,14 @@ function baseUrl(): string {
 export type ClientMeta = { ip?: string; userAgent?: string };
 
 export function clientMeta(request: NextRequest): ClientMeta {
-  const forwarded = request.headers
-    .get("x-forwarded-for")
-    ?.split(",")[0]
-    ?.trim();
   return {
-    ip: forwarded || request.headers.get("x-real-ip") || undefined,
+    ip: visitorIp(request.headers),
     userAgent: request.headers.get("user-agent") ?? undefined,
   };
 }
 
 function metaHeaders(meta: ClientMeta): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (meta.ip) headers["X-Forwarded-For"] = meta.ip;
+  const headers: Record<string, string> = forwardIpHeaders(meta.ip);
   if (meta.userAgent) headers["User-Agent"] = meta.userAgent;
   return headers;
 }

@@ -14,6 +14,24 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:3000'),
   COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECRET: z.string().min(32, 'Use at least 32 random characters'),
+  // How many proxies sit in front of the API (Render). Find it with SHOW_CLIENT_IP below.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+  // Shared with the website's server (API_PROXY_SECRET there), so it can pass the visitor's IP
+  INTERNAL_PROXY_SECRET: z
+    .string()
+    .min(32, 'Use at least 32 random characters')
+    .optional(),
+  // "true" opens GET /api/v1/auth/ip for a moment, to check TRUST_PROXY. Remove afterwards.
+  SHOW_CLIENT_IP: z.enum(['true', 'false']).optional(),
+  // Encrypts the authenticator-app secrets in the database. 32+ random characters.
+  // Never change it once set: everyone would have to set up their authenticator again.
+  MFA_ENCRYPTION_KEY: z.string().min(32, 'Use at least 32 random characters'),
+  // Roles that must use two-step sign-in. Empty: staff,manager,admin. "none": nobody.
+  MFA_REQUIRED_ROLES: z.string().optional(),
+  // The name shown in the authenticator app (defaults to BRAND_NAME)
+  MFA_ISSUER: z.string().max(40).optional(),
+  // "off" skips the breached-password check (on by default)
+  PASSWORD_BREACH_CHECK: z.enum(['on', 'off']).optional(),
   JWT_ACCESS_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'Use at least 32 random characters'),
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -46,10 +64,12 @@ const envSchema = z.object({
   ORDER_SIGNING_SECRET: z.string().optional(),
   SITE_CONFIG_PATH: z.string().optional(),
   ONBOARDING_NOTIFY_EMAIL: z.email().optional(),
-  ONBOARDING_WHATSAPP_RECIPIENTS: z.string().optional(),
+  ONBOARDING_WHATSAPP_PHONE: z.string().optional(),
+  CALLMEBOT_API_KEY: z.string().optional(),
   SITES_PATH: z.string().optional(),
   HQ_ONBOARDING_URL: z.string().optional(),
   HQ_ONBOARDING_SECRET: z.string().optional(),
+  ONBOARDING_WHATSAPP_RECIPIENTS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -62,5 +82,16 @@ export function validateEnv(config: Record<string, unknown>): Env {
       .join('\n');
     throw new Error(`Invalid environment variables:\n${issues}`);
   }
-  return result.data;
+  const env = result.data;
+  const secrets = [
+    env.JWT_ACCESS_SECRET,
+    env.JWT_REFRESH_SECRET,
+    env.COOKIE_SECRET,
+    env.MFA_ENCRYPTION_KEY,
+  ];
+  if (new Set(secrets).size !== secrets.length)
+    throw new Error(
+      'Invalid environment variables:\n  - JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, COOKIE_SECRET and MFA_ENCRYPTION_KEY must all be different',
+    );
+  return env;
 }

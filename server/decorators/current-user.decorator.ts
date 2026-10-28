@@ -7,7 +7,12 @@ import type { Request } from 'express';
 import type { Types } from 'mongoose';
 import type { Role } from 'lib/constants/roles';
 
-export type CurrentActor = { id: string; role: Role; name: string };
+export type CurrentActor = {
+  id: string;
+  role: Role;
+  name: string;
+  sessionId?: string;
+};
 
 type RequestUser = {
   _id?: Types.ObjectId | string;
@@ -19,9 +24,10 @@ type RequestUser = {
 
 export const CurrentUser = createParamDecorator(
   (_: unknown, context: ExecutionContext): CurrentActor => {
-    const user = context
+    const request = context
       .switchToHttp()
-      .getRequest<Request & { user?: RequestUser }>().user;
+      .getRequest<Request & { user?: RequestUser; authSessionId?: string }>();
+    const user = request.user;
 
     const id = user?._id?.toString() ?? user?.id;
     if (!id || !user?.role) throw new UnauthorizedException();
@@ -29,6 +35,7 @@ export const CurrentUser = createParamDecorator(
       id,
       role: user.role,
       name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+      sessionId: request.authSessionId,
     };
   },
 );

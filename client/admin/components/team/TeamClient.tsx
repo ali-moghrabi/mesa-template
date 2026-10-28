@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * The team page's interactive pieces: search and status filter, the actions menu on each person,
- * the confirmations (with what they gain or lose), and the "Add member" dialog.
- * The page itself is a server component.
- */
-
 import { useRouter } from "next/navigation";
 import {
   useEffect,
@@ -28,6 +22,7 @@ import {
   Power,
   Search,
   ShieldAlert,
+  ShieldOff,
   UserMinus,
   UserPlus,
   X,
@@ -65,6 +60,7 @@ import { ROLE_RANK, type Permission, type Role } from "@/lib/auth/user-roles";
 import {
   changeMemberRole,
   changeMemberStatus,
+  resetMemberTwoFactor,
   searchTeamCandidates,
 } from "@/admin/lib/team/team-actions";
 import {
@@ -280,7 +276,8 @@ export function TeamToolbar({
 
 type Change =
   | { kind: "role"; role: Role }
-  | { kind: "status"; isActive: boolean };
+  | { kind: "status"; isActive: boolean }
+  | { kind: "reset2fa" };
 
 function useMemberChange(
   member: { id: string; firstName: string; role: Role },
@@ -292,7 +289,9 @@ function useMemberChange(
       const result =
         change.kind === "role"
           ? await changeMemberRole(member.id, change.role, member.role)
-          : await changeMemberStatus(member.id, change.isActive);
+          : change.kind === "reset2fa"
+            ? await resetMemberTwoFactor(member.id)
+            : await changeMemberStatus(member.id, change.isActive);
       if (!result.ok) throw new Error(result.message);
       return { change };
     },
@@ -314,6 +313,7 @@ function useMemberChange(
 }
 
 function successMessage(name: string, change: Change, from: Role): string {
+  if (change.kind === "reset2fa") return `${name}'s two-step sign-in was reset`;
   if (change.kind === "status")
     return change.isActive
       ? `${name} can sign in again`
@@ -421,6 +421,16 @@ export function MemberActions({ member }: { member: TeamMember }) {
             <DropdownMenuSeparator className="my-1.5" />
           )}
 
+          {member.can.resetTwoFactor && (
+            <DropdownMenuItem
+              onClick={() => setPending({ kind: "reset2fa" })}
+              className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 focus:bg-muted focus:text-foreground data-highlighted:bg-muted data-highlighted:text-foreground"
+            >
+              <ShieldOff className="size-4 text-amber-600 dark:text-amber-400" />
+              Reset two-step sign-in
+            </DropdownMenuItem>
+          )}
+
           {member.can.changeStatus && (
             <DropdownMenuItem
               onClick={() =>
@@ -490,7 +500,12 @@ function ConfirmChange({
   let danger = false;
   let body: ReactNode = null;
 
-  if (c.kind === "status") {
+  if (c.kind === "reset2fa") {
+    danger = true;
+    title = `Reset ${name}'s two-step sign-in?`;
+    description = `Only for a lost or changed phone. ${name} is signed out of every device, and sets up an authenticator app again at the next sign-in. Make sure it's really ${name} who asked.`;
+    confirmLabel = "Reset two-step sign-in";
+  } else if (c.kind === "status") {
     danger = !c.isActive;
     title = c.isActive
       ? `Enable ${name}'s account?`

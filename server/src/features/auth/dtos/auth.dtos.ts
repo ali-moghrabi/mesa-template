@@ -1,5 +1,7 @@
 import {
+  IsBoolean,
   IsEmail,
+  IsOptional,
   IsNotEmpty,
   IsString,
   Matches,
@@ -11,10 +13,12 @@ import { Transform } from 'class-transformer';
 export class LoginUserDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(254)
   readonly identifier!: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(128)
   readonly password!: string;
 }
 
@@ -41,16 +45,21 @@ export class RegisterUserDto {
   @IsNotEmpty({ message: 'Username is required' })
   @MinLength(5, { message: 'Username is too short' })
   @MaxLength(30, { message: 'Username is too long' })
+  @Matches(/^[^\s@]+$/, {
+    message: 'Username can’t contain spaces or @',
+  })
   readonly username!: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Email is required' })
   @IsEmail({}, { message: 'Invalid email address' })
+  @MaxLength(254)
   readonly email!: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Password is required' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @MaxLength(128, { message: 'Password is too long' })
   @Matches(/(?=.*[a-z])/, {
     message: 'Password must contain at least one lowercase letter',
   })
@@ -93,4 +102,23 @@ export class ResetPasswordDto extends CheckResetTokenDto {
   @MinLength(8, { message: 'Use at least 8 characters' })
   @MaxLength(128)
   password!: string;
+}
+
+export class TwoFactorChallengeDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{30,64}$/, {
+    message: 'This sign-in timed out. Please sign in again.',
+  })
+  challenge!: string;
+}
+
+export class TwoFactorVerifyDto extends TwoFactorChallengeDto {
+  @IsString()
+  @MinLength(6, { message: 'Enter the 6-digit code' })
+  @MaxLength(32)
+  code!: string;
+
+  @IsOptional()
+  @IsBoolean()
+  trustDevice?: boolean;
 }

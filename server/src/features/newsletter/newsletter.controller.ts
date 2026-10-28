@@ -24,10 +24,7 @@ import {
 } from './dto/newsletter.dto';
 import { NewsletterService } from './newsletter.service';
 
-const clientIp = (req: Request) =>
-  (req.headers['x-forwarded-for'] as string | undefined)
-    ?.split(',')[0]
-    ?.trim() || req.ip;
+import { clientIp } from 'lib/security/client-ip';
 
 /**
  * The newsletter, public (no sign-in): the website's form and the links in the emails.

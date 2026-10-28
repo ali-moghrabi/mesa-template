@@ -51,6 +51,33 @@ export class User {
 
   @Prop({ default: false })
   isEmailVerified!: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  mfaEnabled!: boolean;
+
+  @Prop({ type: Date })
+  mfaEnabledAt?: Date;
+
+  @Prop({ type: String, select: false })
+  mfaSecret?: string;
+
+  @Prop({ type: String, select: false })
+  mfaPendingSecret?: string;
+
+  @Prop({ type: Date, select: false })
+  mfaPendingAt?: Date;
+
+  @Prop({ type: Number, select: false })
+  mfaLastStep?: number;
+
+  @Prop({ type: [String], select: false, default: undefined })
+  mfaRecoveryCodes?: string[];
+
+  @Prop({ type: Number, select: false })
+  mfaFailures?: number;
+
+  @Prop({ type: Date, select: false })
+  mfaLockedUntil?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

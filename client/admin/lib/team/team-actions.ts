@@ -50,3 +50,13 @@ export async function changeMemberStatus(
     body: { isActive: isActive === true },
   });
 }
+
+export async function resetMemberTwoFactor(
+  id: string,
+): Promise<ApiResult<TeamMember>> {
+  await requireTeam("users:manage");
+  if (!OBJECT_ID.test(id)) return invalid("This account no longer exists.");
+  return adminFetch<TeamMember>(`/admin/team/${id}/reset-2fa`, {
+    method: "POST",
+  });
+}

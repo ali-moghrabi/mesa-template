@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 import { ArrowUpIcon, X, Menu } from "lucide-react";
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -65,6 +65,28 @@ export function NavbarClient({
   const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
   const [barDismissed, setBarDismissed] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = headerRef.current;
+    if (!el || !sticky) {
+      root.style.setProperty("--nav-offset", "0px");
+      return () => root.style.removeProperty("--nav-offset");
+    }
+    const update = () =>
+      root.style.setProperty(
+        "--nav-offset",
+        `${Math.round(el.getBoundingClientRect().height)}px`,
+      );
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--nav-offset");
+    };
+  }, [sticky]);
 
   useEffect(() => {
     const open = () => setSignInDialogOpen(true);
@@ -102,6 +124,7 @@ export function NavbarClient({
   return (
     <QueryWrapper>
       <header
+        ref={headerRef}
         className={cn(
           "fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top,0px)] [--pad:clamp(1.1rem,4vw,3.5rem)]",
           !sticky && "absolute",

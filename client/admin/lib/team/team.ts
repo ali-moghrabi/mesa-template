@@ -31,10 +31,11 @@ export type TeamMember = {
   role: Role;
   isActive: boolean;
   isEmailVerified: boolean;
+  mfaEnabled: boolean;
   lastLoginAt?: string;
   createdAt: string;
   isYou: boolean;
-  can: { roles: Role[]; changeStatus: boolean };
+  can: { roles: Role[]; changeStatus: boolean; resetTwoFactor: boolean };
   lockedReason?: string;
 };
 

@@ -4,6 +4,11 @@ const media = process.env.NEXT_PUBLIC_MEDIA_URL
   ? new URL(process.env.NEXT_PUBLIC_MEDIA_URL)
   : null;
 
+const upgrade =
+  process.env.NODE_ENV === "production" ? "; upgrade-insecure-requests" : "";
+const csp = (frameAncestors: string) =>
+  `object-src 'none'; base-uri 'self'; frame-ancestors ${frameAncestors}${upgrade}`;
+
 const securityHeaders = [
   {
     key: "Strict-Transport-Security",
@@ -17,6 +22,10 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=()",
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  {
+    key: "Content-Security-Policy",
+    value: csp("'none'"),
+  },
 ];
 
 const nextConfig: NextConfig = {
@@ -38,7 +47,13 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       {
         source: "/3ds-return",
-        headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }],
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          {
+            key: "Content-Security-Policy",
+            value: csp("'self'"),
+          },
+        ],
       },
       {
         source: "/assets/:path*",

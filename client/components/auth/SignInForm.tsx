@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import Link from "next/link";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -12,13 +12,17 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { useSessionRefresh } from "@/hooks/use-session-refresh";
 import { loginUser } from "../../lib/actions/auth.actions";
 import { GoogleButton, OrDivider } from "./GoogleButton";
+import { TwoFactorStep } from "./TwoFactorStep";
+import type { TwoFactorGate } from "@/lib/two-factor";
 
 const SignInForm: React.FC<{
   setSignInDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setSignUpDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({ setSignInDialogOpen, setSignUpDialogOpen }) => {
+  brandName?: string;
+}> = ({ setSignInDialogOpen, setSignUpDialogOpen, brandName = "Account" }) => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [gate, setGate] = useState<TwoFactorGate | null>(null);
 
   const { syncSession, isSyncing } = useSessionRefresh();
 
@@ -45,10 +49,22 @@ const SignInForm: React.FC<{
     });
   };
 
+  const restart = useCallback(
+    (message?: string) => {
+      setGate(null);
+      setErrorMessage(message ?? null);
+      form.resetField("password");
+    },
+    [form],
+  );
+
   const { mutate: loginMutation, isPending } = useMutation({
     mutationFn: (data: LoginUserForm) => loginUser(data),
     onMutate: () => setErrorMessage(null),
-    onSuccess: signedIn,
+    onSuccess: (result) => {
+      if (result.status === "two-factor") setGate(result.gate);
+      else signedIn();
+    },
     onError: (error) => {
       setErrorMessage(String(error?.message || "Something went wrong!"));
       form.resetField("password");
@@ -57,10 +73,22 @@ const SignInForm: React.FC<{
 
   const busy = isPending || isSyncing;
 
+  if (gate)
+    return (
+      <TwoFactorStep
+        key={gate.challenge}
+        gate={gate}
+        brand={brandName}
+        onSignedIn={signedIn}
+        onRestart={restart}
+      />
+    );
+
   return (
     <div className="px-6 pb-7">
       <GoogleButton
         onSignedIn={signedIn}
+        onTwoFactor={setGate}
         onError={setErrorMessage}
         disabled={busy}
       />

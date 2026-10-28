@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { forwardIpHeaders } from "@/lib/api-forward";
 import {
   contactSchema,
   type ContactResult,
@@ -49,7 +50,7 @@ export async function sendContactMessage(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(ip && { "X-Forwarded-For": ip }),
+        ...forwardIpHeaders(ip),
         "User-Agent": h.get("user-agent") ?? "",
       },
       body: JSON.stringify({

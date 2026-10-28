@@ -6,3 +6,7 @@ export const REFRESH_COOKIE_PATH = '/api/v1/auth';
 export const ACCESS_TTL_SECONDS = 15 * 60;
 
 export const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+export const JWT_ALGORITHM = 'HS256' as const;
+export const JWT_ISSUER = 'mesa-api';
+export const JWT_AUDIENCE = 'mesa-web';

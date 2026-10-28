@@ -12,7 +12,13 @@ import {
   PasswordReset,
   PasswordResetSchema,
 } from 'src/schemas/password-reset.schema';
+import {
+  LoginAttempt,
+  LoginAttemptSchema,
+} from 'src/schemas/login-attempt.schema';
 import { AccountModule } from '../account/account.module';
+import { LoginAttemptsService } from './login-attempts.service';
+import { TwoFactorModule } from '../two-factor/two-factor.module';
 
 @Module({
   imports: [
@@ -21,12 +27,19 @@ import { AccountModule } from '../account/account.module';
       { name: User.name, schema: UserSchema },
       { name: Session.name, schema: SessionSchema },
       { name: PasswordReset.name, schema: PasswordResetSchema },
+      { name: LoginAttempt.name, schema: LoginAttemptSchema },
     ]),
     JwtModule.register({}),
     AccountModule,
+    TwoFactorModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordResetService, JwtStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    PasswordResetService,
+    LoginAttemptsService,
+    JwtStrategy,
+  ],
+  exports: [AuthService, LoginAttemptsService],
 })
 export class AuthModule {}

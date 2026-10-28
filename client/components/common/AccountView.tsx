@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
+  useRef,
   useState,
   type ComponentProps,
   type ReactNode,
@@ -28,6 +29,8 @@ import {
   Receipt,
   RotateCw,
   ShieldAlert,
+  ShieldCheck,
+  Smartphone,
   Trash2,
   UserRound,
 } from "lucide-react";
@@ -66,11 +69,27 @@ import {
 import {
   changePassword,
   deleteAccount,
+  disableTwoFactor,
+  enableTwoFactor,
+  forgetTrustedDevices,
+  newRecoveryCodes,
   sendVerificationEmail,
   signOutEverywhere,
+  startTwoFactor,
   updateProfile,
 } from "@/lib/actions/account.actions";
 import { GoogleMark } from "@/components/auth/GoogleButton";
+import {
+  AuthenticatorSetup,
+  CodeInput,
+  RecoveryCodes,
+} from "@/components/auth/TwoFactorParts";
+import {
+  cleanCode,
+  looksLikeBackupCode,
+  type SetupInfo,
+  type TwoFactorState,
+} from "@/lib/two-factor";
 
 type Props = {
   account: Account;
@@ -78,6 +97,8 @@ type Props = {
   lastSignIn?: string;
   features: { reservations: boolean; ordering: boolean };
   team: { roleLabel: string } | null;
+  brandName?: string;
+  setupTwoFactor?: boolean;
 };
 
 class FormFailure extends Error {
@@ -104,7 +125,16 @@ export function AccountView({
   lastSignIn,
   features,
   team,
+  brandName = "Account",
+  setupTwoFactor = false,
 }: Props) {
+  const twoFactor: TwoFactorState = account.twoFactor ?? {
+    enabled: false,
+    required: false,
+    recoveryCodesLeft: 0,
+    trustedDevices: 0,
+  };
+  const twoFactorNeeded = twoFactor.required && !twoFactor.enabled;
   const sections = [
     { id: "profile", label: "Profile", icon: UserRound },
     {
@@ -114,6 +144,12 @@ export function AccountView({
       dot: !account.isEmailVerified,
     },
     { id: "password", label: "Password", icon: KeyRound },
+    {
+      id: "two-step",
+      label: "Two-step sign-in",
+      icon: ShieldCheck,
+      dot: twoFactorNeeded,
+    },
     { id: "devices", label: "Devices", icon: MonitorSmartphone },
     ...(features.reservations || features.ordering
       ? [
@@ -188,7 +224,7 @@ export function AccountView({
 
       <nav
         aria-label="Account sections"
-        className="sticky top-(--nav-height,4.5rem) z-20 border-b border-foreground/10 bg-background/90 backdrop-blur-lg lg:hidden"
+        className="sticky top-(--nav-offset,4.5rem) z-20 border-b border-foreground/10 bg-background lg:hidden"
       >
         <ul className="flex gap-1 overflow-x-auto px-(--pad) py-2.5 [--pad:clamp(1.1rem,4vw,3.5rem)] scrollbar-none [&::-webkit-scrollbar]:hidden">
           {sections.map((s) => (
@@ -267,6 +303,12 @@ export function AccountView({
             <PasswordSection
               hasPassword={account.hasPassword}
               googleLinked={account.googleLinked}
+            />
+            <TwoFactorSection
+              state={twoFactor}
+              hasPassword={account.hasPassword}
+              brandName={brandName}
+              autoStart={setupTwoFactor && twoFactorNeeded}
             />
             <DevicesSection lastSignIn={lastSignIn} />
             {(features.reservations || features.ordering) && (
@@ -1300,5 +1342,581 @@ function CloseSection({
         </AlertDialogContent>
       </AlertDialog>
     </Section>
+  );
+}
+
+/* ───────────── two-step sign-in ───────────── */
+
+type TwoFactorPanel =
+  | { kind: "setup"; info: SetupInfo; moving: boolean }
+  | { kind: "codes"; codes: string[]; title: string };
+
+type CodeAsk = "move" | "codes" | "disable";
+
+function TwoFactorSection({
+  state,
+  hasPassword,
+  brandName,
+  autoStart,
+}: {
+  state: TwoFactorState;
+  hasPassword: boolean;
+  brandName: string;
+  /** Came from the admin panel, which needs it: open the setup right away */
+  autoStart: boolean;
+}) {
+  const router = useRouter();
+  const { syncSession } = useSessionRefresh();
+  const [panel, setPanel] = useState<TwoFactorPanel | null>(null);
+  const [ask, setAsk] = useState<CodeAsk | null>(null);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  const start = useMutation({
+    mutationFn: (current?: string) => unwrap(startTwoFactor(current)),
+    onSuccess: (info, current) => {
+      setPanel({ kind: "setup", info, moving: current !== undefined });
+      setAsk(null);
+      setCode("");
+      setCodeError(null);
+    },
+    onError: (error) =>
+      toast.add({
+        title: "Setup didn't start",
+        description: error.message,
+        type: "error",
+      }),
+  });
+
+  const started = useRef(false);
+  const { mutate: begin } = start;
+  useEffect(() => {
+    if (autoStart && !state.enabled && !started.current) {
+      started.current = true;
+      begin(undefined);
+    }
+  }, [autoStart, state.enabled, begin]);
+
+  const enable = useMutation({
+    mutationFn: (value: string) => unwrap(enableTwoFactor(value)),
+    onSuccess: ({ recoveryCodes }) => {
+      setPanel({
+        kind: "codes",
+        codes: recoveryCodes,
+        title: "Two-step sign-in is on",
+      });
+      setCode("");
+    },
+    onError: (error) => {
+      setCodeError(
+        error instanceof FormFailure && error.fieldErrors?.code
+          ? error.fieldErrors.code
+          : error.message,
+      );
+      setCode("");
+    },
+  });
+
+  const forget = useMutation({
+    mutationFn: () => unwrap(forgetTrustedDevices()),
+    onSuccess: () => {
+      toast.add({
+        title: "Trusted devices forgotten",
+        description: "Every device asks for a code at the next sign-in.",
+        type: "success",
+      });
+      router.refresh();
+    },
+    onError: (error) =>
+      toast.add({
+        title: "Nothing changed",
+        description: error.message,
+        type: "error",
+      }),
+  });
+
+  const finish = () => {
+    setPanel(null);
+    void syncSession({ refetchUser: true });
+  };
+
+  const since = state.enabledAt
+    ? new Intl.DateTimeFormat("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(state.enabledAt))
+    : null;
+  const needed = state.required && !state.enabled;
+
+  return (
+    <Section
+      id="two-step"
+      title="Two-step sign-in"
+      description="After your password, you also enter a 6-digit code from an authenticator app on your phone. Someone who learns your password still can't get in."
+    >
+      {needed && !panel && (
+        <div
+          role="status"
+          className="mb-5 flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200"
+        >
+          <ShieldAlert className="mt-0.5 size-5 shrink-0" />
+          <p className="text-pretty">
+            <strong className="font-semibold">Needed for your role.</strong> Set
+            it up to keep using the admin panel. It takes about a minute.
+          </p>
+        </div>
+      )}
+
+      {panel?.kind === "codes" ? (
+        <div className="max-w-xl">
+          <p className="mb-4 inline-flex items-center gap-2 text-[15px] font-semibold text-emerald-700 dark:text-emerald-300">
+            <BadgeCheck className="size-5" /> {panel.title}
+          </p>
+          <RecoveryCodes
+            codes={panel.codes}
+            brand={brandName}
+            onDone={finish}
+            doneLabel="Done"
+          />
+        </div>
+      ) : panel?.kind === "setup" ? (
+        <form
+          className="grid max-w-xl gap-5"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!cleanCode(code))
+              return setCodeError("Enter the 6-digit code from your app.");
+            enable.mutate(code);
+          }}
+        >
+          {panel.moving && (
+            <p className="text-sm text-foreground/65">
+              Add the account to the app on your new phone. Your old phone stops
+              working once you confirm.
+            </p>
+          )}
+          <AuthenticatorSetup info={panel.info} />
+          <div className="grid gap-2">
+            <CodeInput
+              id="enable-code"
+              value={code}
+              onChange={(v) => {
+                setCode(v);
+                if (codeError) setCodeError(null);
+              }}
+              onComplete={(v) => enable.mutate(v)}
+              invalid={!!codeError}
+              disabled={enable.isPending}
+            />
+            {codeError && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                {codeError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={enable.isPending}
+              onClick={() => {
+                setPanel(null);
+                setCode("");
+                setCodeError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={enable.isPending}
+              className="min-w-40 text-white"
+            >
+              {enable.isPending && (
+                <LoaderCircle className="size-4 animate-spin" />
+              )}
+              {enable.isPending
+                ? "Checking…"
+                : panel.moving
+                  ? "Use this phone"
+                  : "Turn on"}
+            </Button>
+          </div>
+        </form>
+      ) : state.enabled ? (
+        <div className="grid gap-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-emerald-500/12 px-3.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+              <ShieldCheck className="size-4" /> On
+            </span>
+            {since && (
+              <span className="text-sm text-foreground/60">Since {since}</span>
+            )}
+            {state.required && (
+              <span className="text-sm text-foreground/60">
+                · Needed for your role
+              </span>
+            )}
+          </div>
+
+          <ul className="divide-y divide-foreground/10 overflow-hidden rounded-2xl border border-foreground/10">
+            <TwoFactorRow
+              icon={<Smartphone className="size-5" />}
+              title="Authenticator app"
+              text="Lost or changed your phone? Move the codes to the new one."
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAsk("move")}
+                >
+                  Move to a new phone
+                </Button>
+              }
+            />
+            <TwoFactorRow
+              icon={<KeyRound className="size-5" />}
+              title="Backup codes"
+              text={
+                state.recoveryCodesLeft > 0
+                  ? `${state.recoveryCodesLeft} of 10 left. Each works once, when your phone isn't at hand.`
+                  : "None left. Make new ones, so you can still sign in without your phone."
+              }
+              warn={state.recoveryCodesLeft <= 2}
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAsk("codes")}
+                >
+                  New backup codes
+                </Button>
+              }
+            />
+            <TwoFactorRow
+              icon={<MonitorSmartphone className="size-5" />}
+              title="Trusted devices"
+              text={
+                state.trustedDevices > 0
+                  ? `${state.trustedDevices} ${state.trustedDevices === 1 ? "device skips" : "devices skip"} the code for 30 days.`
+                  : "No device skips the code."
+              }
+              action={
+                state.trustedDevices > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={forget.isPending}
+                    onClick={() => forget.mutate()}
+                  >
+                    {forget.isPending && (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    )}
+                    Forget all
+                  </Button>
+                ) : null
+              }
+            />
+          </ul>
+
+          {!state.required && (
+            <div>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setAsk("disable")}
+              >
+                Turn off two-step sign-in
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-foreground/6 text-foreground/70">
+              <ShieldCheck className="size-5" />
+            </span>
+            <div>
+              <p className="font-semibold">Off</p>
+              <p className="text-sm text-foreground/60">
+                Free authenticator apps: Google Authenticator, Microsoft
+                Authenticator, 2FAS.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={() => start.mutate(undefined)}
+            disabled={start.isPending}
+            className="shrink-0 text-white"
+          >
+            {start.isPending && (
+              <LoaderCircle className="size-4 animate-spin" />
+            )}
+            Set up
+          </Button>
+        </div>
+      )}
+
+      <CodeDialog
+        open={ask === "move"}
+        onClose={() => setAsk(null)}
+        title="Move to a new phone"
+        description="First, confirm it's you with a code from your current app, or a backup code."
+        confirmLabel="Continue"
+        onSubmit={async (value) => {
+          const info = await unwrap(startTwoFactor(value));
+          setAsk(null);
+          setCode("");
+          setCodeError(null);
+          setPanel({ kind: "setup", info, moving: true });
+        }}
+      />
+      <CodeDialog
+        open={ask === "codes"}
+        onClose={() => setAsk(null)}
+        title="Make new backup codes?"
+        description="Your old backup codes stop working. Enter a code from your app to continue."
+        confirmLabel="Make new codes"
+        onSubmit={async (value) => {
+          const { recoveryCodes } = await unwrap(newRecoveryCodes(value));
+          setAsk(null);
+          setPanel({
+            kind: "codes",
+            codes: recoveryCodes,
+            title: "New backup codes are ready",
+          });
+        }}
+      />
+      <CodeDialog
+        open={ask === "disable"}
+        onClose={() => setAsk(null)}
+        title="Turn off two-step sign-in?"
+        description="Your password alone will open your account again, and trusted devices are forgotten."
+        confirmLabel="Turn off"
+        danger
+        needPassword={hasPassword}
+        onSubmit={async (value, password) => {
+          await unwrap(disableTwoFactor({ code: value, password }));
+          setAsk(null);
+          toast.add({ title: "Two-step sign-in is off", type: "success" });
+          void syncSession({ refetchUser: true });
+        }}
+      />
+    </Section>
+  );
+}
+
+function TwoFactorRow({
+  icon,
+  title,
+  text,
+  action,
+  warn,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+  action: ReactNode;
+  warn?: boolean;
+}) {
+  return (
+    <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span
+          className={cn(
+            "grid size-10 shrink-0 place-items-center rounded-full",
+            warn
+              ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              : "bg-foreground/6 text-foreground/70",
+          )}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="font-semibold">{title}</p>
+          <p className="text-sm text-pretty text-foreground/60">{text}</p>
+        </div>
+      </div>
+      {action && <div className="shrink-0 max-sm:pl-13.5">{action}</div>}
+    </li>
+  );
+}
+
+/** Asks for a code (from the app, or a backup code), and the password when needed */
+function CodeDialog({
+  open,
+  onClose,
+  title,
+  description,
+  confirmLabel,
+  danger,
+  needPassword,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  danger?: boolean;
+  needPassword?: boolean;
+  onSubmit: (code: string, password?: string) => Promise<void>;
+}) {
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [backup, setBackup] = useState(false);
+  const [errors, setErrors] = useState<{ code?: string; password?: string }>(
+    {},
+  );
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setCode("");
+    setPassword("");
+    setShow(false);
+    setBackup(false);
+    setErrors({});
+  };
+
+  const submit = async (value = code) => {
+    if (busy) return;
+    const ok = backup ? looksLikeBackupCode(value) : cleanCode(value);
+    const next: typeof errors = {};
+    if (!ok)
+      next.code = backup
+        ? "Enter a backup code, like abcde-12345"
+        : "Enter the 6-digit code from your app";
+    if (needPassword && !password) next.password = "Enter your password";
+    setErrors(next);
+    if (next.code || next.password) return;
+
+    setBusy(true);
+    try {
+      await onSubmit(value, needPassword ? password : undefined);
+      reset();
+    } catch (error) {
+      const fields =
+        error instanceof FormFailure ? error.fieldErrors : undefined;
+      setErrors(
+        fields?.code || fields?.password
+          ? { code: fields.code, password: fields.password }
+          : { code: (error as Error).message },
+      );
+      setCode("");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (busy || next) return;
+        reset();
+        onClose();
+      }}
+    >
+      <AlertDialogContent className="text-left sm:max-w-md">
+        <form
+          noValidate
+          className="grid gap-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
+        >
+          <AlertDialogHeader>
+            <span
+              className={cn(
+                "mx-auto grid size-12 place-items-center rounded-full sm:mx-0",
+                danger
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-primary/10 text-primary",
+              )}
+            >
+              <ShieldCheck className="size-6" />
+            </span>
+            <AlertDialogTitle>{title}</AlertDialogTitle>
+            <AlertDialogDescription>{description}</AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {needPassword && (
+            <Field data-invalid={!!errors.password} className="gap-1.5">
+              <FieldLabel htmlFor="two-step-password">Your password</FieldLabel>
+              <PasswordInput
+                id="two-step-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                aria-invalid={!!errors.password}
+                show={show}
+                onToggle={() => setShow((s) => !s)}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password}</p>
+              )}
+            </Field>
+          )}
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <FieldLabel htmlFor="two-step-dialog-code">
+                {backup ? "Backup code" : "Code from your app"}
+              </FieldLabel>
+              <button
+                type="button"
+                onClick={() => {
+                  setBackup((b) => !b);
+                  setCode("");
+                  setErrors((e) => ({ ...e, code: undefined }));
+                }}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {backup ? "Use the app instead" : "Use a backup code"}
+              </button>
+            </div>
+            <CodeInput
+              id="two-step-dialog-code"
+              value={code}
+              onChange={(v) => {
+                setCode(v);
+                if (errors.code) setErrors((e) => ({ ...e, code: undefined }));
+              }}
+              onComplete={needPassword ? undefined : (v) => void submit(v)}
+              backup={backup}
+              invalid={!!errors.code}
+              disabled={busy}
+              autoFocus={!needPassword}
+            />
+            {errors.code && (
+              <p role="alert" className="text-sm text-destructive">
+                {errors.code}
+              </p>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={busy}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="submit"
+              variant={danger ? "destructive" : "default"}
+              disabled={busy}
+              className={cn("min-w-36", !danger && "text-white")}
+            >
+              {busy && <LoaderCircle className="size-4 animate-spin" />}
+              {busy ? "Checking…" : confirmLabel}
+            </Button>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

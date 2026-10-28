@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { ThemeProvider } from "next-themes";
 import { getConfig } from "@/config/loader";
 import { getOpeningHours } from "@/lib/opening-hours-server";
+import { redirect } from "next/navigation";
 import { requireTeam } from "@/lib/auth/get-user";
 import { AdminShell } from "@/admin/components/layout/AdminShell";
 import { buildAdminNav, SIDEBAR_COOKIE } from "@/admin/lib/nav";
@@ -24,6 +25,9 @@ export default async function AdminLayout({
   children: ReactNode;
 }) {
   const user = await requireTeam();
+  const mfa = user as IUser & { mfaRequired?: boolean; mfaEnabled?: boolean };
+  if (mfa.mfaRequired && !mfa.mfaEnabled)
+    redirect("/account?setup=2fa#two-step");
   const config = getConfig();
   const collapsed =
     (await cookies()).get(SIDEBAR_COOKIE)?.value === "collapsed";

@@ -11,6 +11,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
+import { originGuard } from '../lib/security/origin-guard';
 import { AppModule } from './app.module.js';
 import type { Env } from './config/env.js';
 
@@ -62,6 +63,7 @@ async function bootstrap() {
   });
 
   app.use(cookieParser(config.get('COOKIE_SECRET', { infer: true })));
+  app.use(originGuard(allowedOrigins));
 
   app.useGlobalPipes(
     new ValidationPipe({

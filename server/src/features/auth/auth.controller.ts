@@ -4,13 +4,18 @@ import {
   Controller,
   Get,
   HttpCode,
+  NotFoundException,
   Post,
   Req,
   Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { AuthService, type RequestMeta } from './auth.service';
+import {
+  AuthService,
+  type RequestMeta,
+  type SignInResult,
+} from './auth.service';
 import express from 'express';
 import { JwtAuthGuard } from 'guards/jwt.guard';
 import { User } from 'decorators/user.decorator';
@@ -21,7 +26,14 @@ import {
   LoginUserDto,
   RegisterUserDto,
   ResetPasswordDto,
+  TwoFactorChallengeDto,
+  TwoFactorVerifyDto,
 } from './dtos/auth.dtos';
+import {
+  TRUST_DAYS,
+  TRUSTED_DEVICE_COOKIE,
+} from 'src/features/two-factor/two-factor.service';
+import { mfaRequiredFor } from 'lib/security/mfa-policy';
 import {
   PasswordResetService,
   RESET_TTL_MINUTES,
@@ -35,6 +47,7 @@ import {
   REFRESH_TOKEN_NAME,
   REFRESH_TTL_SECONDS,
 } from 'lib/constants/authConstants';
+import { clientIp } from 'lib/security/client-ip';
 
 @Controller('auth')
 export class AuthController {
@@ -63,17 +76,12 @@ export class AuthController {
     @Req() req: express.Request,
     @Res({ passthrough: true }) res: express.Response,
   ) {
-    const { accessToken, refreshToken } = await this.authService.login(
+    const result = await this.authService.login(
       loginUserDto,
       this.meta(req),
+      this.trustedDevice(req),
     );
-
-    this.setAccessCookie(res, accessToken);
-    this.setRefreshCookie(res, refreshToken);
-
-    return {
-      message: 'User Logged successfully',
-    };
+    return this.signInResponse(res, result, 'User Logged successfully');
   }
 
   /**
@@ -93,13 +101,56 @@ export class AuthController {
       throw new BadRequestException('Missing X-Requested-With header');
     }
 
-    const { accessToken, refreshToken } =
-      await this.authService.loginWithGoogle(dto.code, this.meta(req));
+    const result = await this.authService.loginWithGoogle(
+      dto.code,
+      this.meta(req),
+      this.trustedDevice(req),
+    );
+    return this.signInResponse(res, result, 'Signed in with Google');
+  }
 
-    this.setAccessCookie(res, accessToken);
-    this.setRefreshCookie(res, refreshToken);
+  /**
+   * POST /api/v1/auth/2fa/setup { challenge } → { secret, uri, issuer, account }
+   * During sign-in, when the role requires two-step sign-in and it isn't set up yet.
+   */
+  @Post('2fa/setup')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  twoFactorSetup(@Body() dto: TwoFactorChallengeDto) {
+    return this.authService.startTwoFactorSetup(dto.challenge);
+  }
 
-    return { message: 'Signed in with Google' };
+  /**
+   * POST /api/v1/auth/2fa/verify { challenge, code, trustDevice? } → the sign-in cookies.
+   * code: 6 digits from the app, or a backup code. Just set up: also { recoveryCodes }.
+   * 400 wrong code · 401 challenge expired or used up · 429 locked for a while
+   */
+  @Post('2fa/verify')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async twoFactorVerify(
+    @Body() dto: TwoFactorVerifyDto,
+    @Req() req: express.Request,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const done = await this.authService.completeTwoFactor(
+      dto.challenge,
+      dto.code,
+      dto.trustDevice === true,
+      this.meta(req),
+    );
+    this.setAccessCookie(res, done.tokens.accessToken);
+    this.setRefreshCookie(res, done.tokens.refreshToken);
+    if (done.trustedToken)
+      res.cookie(
+        TRUSTED_DEVICE_COOKIE,
+        done.trustedToken,
+        this.cookieOptions(TRUST_DAYS * 24 * 60 * 60),
+      );
+    return {
+      message: 'Signed in',
+      ...(done.recoveryCodes && { recoveryCodes: done.recoveryCodes }),
+    };
   }
 
   /**
@@ -165,7 +216,26 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   status(@User() user: IUser) {
-    return user;
+    const doc = user as unknown as { toJSON?: () => Record<string, unknown> };
+    const plain = (doc.toJSON ? doc.toJSON() : user) as Record<string, unknown>;
+    return {
+      ...plain,
+      mfaEnabled: plain.mfaEnabled === true,
+      mfaRequired: mfaRequiredFor(
+        plain.role as Parameters<typeof mfaRequiredFor>[0],
+      ),
+    };
+  }
+
+  @Get('ip')
+  ip(@Req() req: express.Request) {
+    if (process.env.SHOW_CLIENT_IP !== 'true') throw new NotFoundException();
+    return {
+      ip: clientIp(req),
+      reqIp: req.ip,
+      forwardedFor: req.headers['x-forwarded-for'] ?? null,
+      trustProxy: process.env.TRUST_PROXY ?? '0',
+    };
   }
 
   @Post('logout')
@@ -182,6 +252,30 @@ export class AuthController {
       message: 'User Logged out successfully',
     };
   }
+  private signInResponse(
+    res: express.Response,
+    result: SignInResult,
+    message: string,
+  ) {
+    if ('twoFactor' in result) {
+      const { step, challenge, expiresAt } = result.twoFactor;
+      return {
+        message: 'Two-step sign-in',
+        twoFactor: { step, challenge, expiresAt },
+      };
+    }
+    this.setAccessCookie(res, result.tokens.accessToken);
+    this.setRefreshCookie(res, result.tokens.refreshToken);
+    return { message };
+  }
+
+  private trustedDevice(req: express.Request): string | undefined {
+    const value = (req.cookies as Record<string, unknown> | undefined)?.[
+      TRUSTED_DEVICE_COOKIE
+    ];
+    return typeof value === 'string' ? value : undefined;
+  }
+
   private cookieOptions(maxAgeSeconds?: number): express.CookieOptions {
     const domain = this.config.get('COOKIE_DOMAIN', { infer: true });
     return {
@@ -242,6 +336,9 @@ export class AuthController {
   }
 
   private meta(req: express.Request): RequestMeta {
-    return { userAgent: req.headers['user-agent'], ip: req.ip };
+    return {
+      userAgent: req.headers['user-agent'],
+      ip: clientIp(req)?.slice(0, 64),
+    };
   }
 }

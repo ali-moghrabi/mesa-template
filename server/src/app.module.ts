@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { AppThrottlerGuard } from 'guards/throttler.guard';
 import { Env, validateEnv } from './config/env';
 import { AppController } from './app.controller';
 import { AuthModule } from './features/auth/auth.module';
@@ -20,6 +21,7 @@ import { MessagesModule } from './features/messages/messages.module';
 import { OverviewModule } from './features/overview/overview.module';
 import { NewsletterModule } from './features/newsletter/newsletter.module';
 import { OnboardingModule } from './features/onboarding/onboarding.module';
+import { TwoFactorModule } from './features/two-factor/two-factor.module';
 
 @Module({
   imports: [
@@ -47,8 +49,9 @@ import { OnboardingModule } from './features/onboarding/onboarding.module';
     OverviewModule,
     NewsletterModule,
     OnboardingModule,
+    TwoFactorModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],
   controllers: [AppController],
 })
 export class AppModule {}

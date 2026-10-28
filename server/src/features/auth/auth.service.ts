@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -22,9 +23,19 @@ import { hashToken, isGraceReplay } from './refresh-policy';
 import { Session, SessionDocument } from 'src/schemas/session.schema';
 import {
   ACCESS_TTL_SECONDS,
+  JWT_ALGORITHM,
+  JWT_AUDIENCE,
+  JWT_ISSUER,
   REFRESH_TTL_SECONDS,
 } from 'lib/constants/authConstants';
 import { EmailVerificationService } from 'src/features/account/email-verification.service';
+import { passwordProblem } from 'lib/security/password-policy';
+import { LoginAttemptsService } from './login-attempts.service';
+import {
+  TwoFactorService,
+  type SetupInfo,
+  type TwoFactorGate,
+} from 'src/features/two-factor/two-factor.service';
 
 export interface RequestMeta {
   userAgent?: string;
@@ -35,6 +46,9 @@ export interface AuthTokens {
   accessToken: string;
   refreshToken?: string;
 }
+
+export type SignInResult =
+  { tokens: Required<AuthTokens> } | { twoFactor: TwoFactorGate };
 
 interface RefreshPayload {
   sub: string;
@@ -71,6 +85,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService<Env, true>,
     private readonly emailVerification: EmailVerificationService,
+    private readonly loginAttempts: LoginAttemptsService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async registerNewUser(registerUserDto: RegisterUserDto) {
@@ -85,6 +101,14 @@ export class AuthService {
     if (userExists) {
       throw new ConflictException('Email or username already exists');
     }
+
+    const weak = await passwordProblem(password, {
+      email,
+      username,
+      firstName,
+      lastName,
+    });
+    if (weak) throw new BadRequestException(weak);
 
     const hashed = await bcrypt.hash(password, 12);
 
@@ -120,9 +144,11 @@ export class AuthService {
   async login(
     loginDto: LoginUserDto,
     meta: RequestMeta,
-  ): Promise<Required<AuthTokens>> {
+    trustedDevice?: string,
+  ): Promise<SignInResult> {
     try {
       const identifier = loginDto.identifier.trim();
+      await this.loginAttempts.assertNotLocked(identifier);
 
       const user = await this.userModel
         .findOne(
@@ -137,17 +163,15 @@ export class AuthService {
         user?.password ?? this.dummyHash,
       );
 
-      if (!user || !match)
+      if (!user || !match) {
+        await this.loginAttempts.recordFailure(identifier);
         throw new UnauthorizedException('Invalid credentials');
+      }
 
       if (!user.isActive) throw new ForbiddenException('Account is disabled');
 
-      await this.userModel.updateOne(
-        { _id: user._id },
-        { $set: { lastLoginAt: new Date() } },
-      );
-
-      return this.createSession(user, meta);
+      await this.loginAttempts.clear(identifier);
+      return this.afterFirstStep(user, meta, trustedDevice);
     } catch (error) {
       if (error instanceof HttpException) throw error;
 
@@ -161,7 +185,8 @@ export class AuthService {
   async loginWithGoogle(
     code: string,
     meta: RequestMeta,
-  ): Promise<Required<AuthTokens>> {
+    trustedDevice?: string,
+  ): Promise<SignInResult> {
     const profile = await this.googleProfile(code);
     const email = normalizeEmail(profile.email ?? '');
 
@@ -180,11 +205,7 @@ export class AuthService {
 
       if (!user.isActive) throw new ForbiddenException('Account is disabled');
 
-      await this.userModel.updateOne(
-        { _id: user._id },
-        { $set: { lastLoginAt: new Date() } },
-      );
-      return this.createSession(user, meta);
+      return this.afterFirstStep(user, meta, trustedDevice);
     } catch (error) {
       if (error instanceof HttpException) throw error;
       this.logger.error(error);
@@ -215,6 +236,11 @@ export class AuthService {
       );
     }
 
+    // Google proves this person owns the email. If the account's email was never verified,
+    // whoever made it may not be them: someone can sign up with another person's address and
+    // wait for them to arrive with Google. So that password and its sessions are dropped, and
+    // only the real owner (through Google) keeps access.
+    const unverified = !existing.isEmailVerified;
     await this.userModel.updateOne(
       { _id: existing._id },
       {
@@ -223,12 +249,22 @@ export class AuthService {
           isEmailVerified: true,
           ...(!existing.emailVerifiedAt && { emailVerifiedAt: new Date() }),
         },
+        ...(unverified && {
+          $unset: { password: 1 },
+          $inc: { tokenVersion: 1 },
+        }),
       },
     );
+    if (unverified)
+      await this.sessionModel.deleteMany({ userId: existing._id });
     this.logger.log(
-      `Google linked to existing account ${String(existing._id)}`,
+      `Google linked to existing account ${String(existing._id)}${unverified ? ' (unverified email: password removed, sessions ended)' : ''}`,
     );
-    return existing;
+    const fresh = await this.userModel
+      .findById(existing._id)
+      .select('+tokenVersion +googleId');
+    if (!fresh) throw new UnauthorizedException('Please try again');
+    return fresh;
   }
 
   private async googleProfile(code: string): Promise<TokenPayload> {
@@ -343,6 +379,7 @@ export class AuthService {
         refreshToken,
         {
           secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+          algorithms: [JWT_ALGORITHM],
         },
       );
     } catch {
@@ -377,7 +414,11 @@ export class AuthService {
 
     if (rotated) {
       return {
-        accessToken: await this.signAccessToken(payload.sub),
+        accessToken: await this.signAccessToken(
+          payload.sub,
+          payload.sid,
+          payload.tv,
+        ),
         refreshToken: nextRefreshToken,
       };
     }
@@ -389,7 +430,13 @@ export class AuthService {
     if (!session) throw new UnauthorizedException('Session expired');
 
     if (isGraceReplay(session, presentedHash)) {
-      return { accessToken: await this.signAccessToken(payload.sub) };
+      return {
+        accessToken: await this.signAccessToken(
+          payload.sub,
+          payload.sid,
+          payload.tv,
+        ),
+      };
     }
 
     await this.revokeAllSessions(user._id);
@@ -411,6 +458,7 @@ export class AuthService {
           refreshToken,
           {
             secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+            algorithms: [JWT_ALGORITHM],
             ignoreExpiration: true,
           },
         );
@@ -425,6 +473,59 @@ export class AuthService {
         this.logger.error(`Logout: failed to delete session!`);
       }
     }
+  }
+
+  private async afterFirstStep(
+    user: UserDocument,
+    meta: RequestMeta,
+    trustedDevice?: string,
+  ): Promise<SignInResult> {
+    const gate = await this.twoFactor.gate(user, trustedDevice);
+    if (gate) return { twoFactor: gate };
+    return { tokens: await this.finishSignIn(user, meta) };
+  }
+
+  private async finishSignIn(
+    user: UserDocument,
+    meta: RequestMeta,
+  ): Promise<Required<AuthTokens>> {
+    await this.userModel.updateOne(
+      { _id: user._id },
+      { $set: { lastLoginAt: new Date() } },
+    );
+    return this.createSession(user, meta);
+  }
+
+  startTwoFactorSetup(challenge: string): Promise<SetupInfo> {
+    return this.twoFactor.challengeSetup(challenge);
+  }
+
+  async completeTwoFactor(
+    challenge: string,
+    code: string,
+    trust: boolean,
+    meta: RequestMeta,
+  ): Promise<{
+    tokens: Required<AuthTokens>;
+    recoveryCodes?: string[];
+    trustedToken?: string;
+  }> {
+    const done = await this.twoFactor.completeChallenge(
+      challenge,
+      code,
+      trust,
+      meta,
+    );
+    const user = await this.userModel
+      .findById(done.userId)
+      .select('+tokenVersion');
+    if (!user || !user.isActive)
+      throw new UnauthorizedException('This account is disabled');
+    return {
+      tokens: await this.finishSignIn(user, meta),
+      recoveryCodes: done.recoveryCodes,
+      trustedToken: done.trustedToken,
+    };
   }
 
   private async createSession(
@@ -448,22 +549,37 @@ export class AuthService {
       ip: meta.ip,
     });
 
-    return { accessToken: await this.signAccessToken(userId), refreshToken };
+    return {
+      accessToken: await this.signAccessToken(
+        userId,
+        sessionId.toString(),
+        user.tokenVersion ?? 0,
+      ),
+      refreshToken,
+    };
   }
 
   private async revokeAllSessions(userId: Types.ObjectId) {
     await Promise.all([
       this.sessionModel.deleteMany({ userId }),
       this.userModel.updateOne({ _id: userId }, { $inc: { tokenVersion: 1 } }),
+      this.twoFactor.forgetDevices(userId),
     ]);
   }
 
-  private signAccessToken(userId: string) {
+  private signAccessToken(
+    userId: string,
+    sessionId: string,
+    tokenVersion: number,
+  ) {
     return this.jwtService.signAsync(
-      { sub: userId },
+      { sub: userId, sid: sessionId, tv: tokenVersion },
       {
         secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
         expiresIn: ACCESS_TTL_SECONDS,
+        algorithm: JWT_ALGORITHM,
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
       },
     );
   }
@@ -482,6 +598,7 @@ export class AuthService {
     return this.jwtService.signAsync(payload, {
       secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
       expiresIn: REFRESH_TTL_SECONDS,
+      algorithm: JWT_ALGORITHM,
     });
   }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { forwardIpHeaders } from "@/lib/api-forward";
 import { getUserSession } from "@/lib/auth/get-user";
 import { adminFetch } from "@/admin/lib/menu/api";
 import {
@@ -38,7 +39,7 @@ async function call(
     method: init.method,
     headers: {
       ...(init.body !== undefined && { "Content-Type": "application/json" }),
-      ...(ip && { "X-Forwarded-For": ip }),
+      ...forwardIpHeaders(ip),
       "User-Agent": h.get("user-agent") ?? "",
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),

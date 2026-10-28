@@ -12,6 +12,9 @@ import {
 import { MailService } from 'src/features/mail/mail.service';
 import { passwordResetEmail } from 'src/features/mail/templates';
 import type { RequestMeta } from './auth.service';
+import { passwordProblem } from 'lib/security/password-policy';
+import { LoginAttemptsService } from './login-attempts.service';
+import { TwoFactorService } from 'src/features/two-factor/two-factor.service';
 
 export const RESET_TTL_MINUTES = 30;
 const RESEND_COOLDOWN_MS = 60_000;
@@ -34,6 +37,8 @@ export class PasswordResetService {
     @InjectModel(PasswordReset.name)
     private resetModel: Model<PasswordResetDocument>,
     private readonly mail: MailService,
+    private readonly loginAttempts: LoginAttemptsService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async request(rawEmail: string, meta: RequestMeta): Promise<void> {
@@ -97,6 +102,25 @@ export class PasswordResetService {
   }
 
   async reset(token: string, password: string): Promise<void> {
+    const pending = await this.findUsable(token);
+    if (pending) {
+      const owner = await this.userModel
+        .findById(pending.userId, {
+          email: 1,
+          username: 1,
+          firstName: 1,
+          lastName: 1,
+        })
+        .lean<{
+          email: string;
+          username: string;
+          firstName: string;
+          lastName: string;
+        }>();
+      const weak = owner && (await passwordProblem(password, owner));
+      if (weak) throw new BadRequestException(weak);
+    }
+
     const reset = await this.resetModel.findOneAndUpdate(
       {
         tokenHash: sha256(token),
@@ -111,8 +135,13 @@ export class PasswordResetService {
       );
 
     const user = await this.userModel
-      .findById(reset.userId, { isActive: 1 })
-      .lean<{ _id: Types.ObjectId; isActive: boolean }>();
+      .findById(reset.userId, { isActive: 1, email: 1, username: 1 })
+      .lean<{
+        _id: Types.ObjectId;
+        isActive: boolean;
+        email: string;
+        username: string;
+      }>();
     if (!user || user.isActive === false)
       throw new BadRequestException(
         'This reset link has expired or was already used. Ask for a new one.',
@@ -131,6 +160,8 @@ export class PasswordResetService {
     await Promise.all([
       this.sessionModel.deleteMany({ userId: user._id }),
       this.resetModel.deleteMany({ userId: user._id }),
+      this.loginAttempts.clear(user.email, user.username),
+      this.twoFactor.forgetDevices(user._id),
     ]);
     this.logger.log(`Password reset for user ${String(user._id)}`);
   }

@@ -11,6 +11,12 @@ import { formError } from 'lib/form-errors';
 import { Session, type SessionDocument } from 'src/schemas/session.schema';
 import { User, type UserDocument } from 'src/schemas/user.schema';
 import type { UpdateAccountDto } from './dto/account.dto';
+import { passwordProblem } from 'lib/security/password-policy';
+import {
+  TwoFactorService,
+  type SetupInfo,
+  type TwoFactorState,
+} from 'src/features/two-factor/two-factor.service';
 import {
   EmailVerificationService,
   type VerificationState,
@@ -34,6 +40,7 @@ export type Account = {
   lastLoginAt?: Date;
   createdAt: Date;
   verification?: VerificationState;
+  twoFactor?: TwoFactorState;
 };
 
 type AccountRow = {
@@ -41,6 +48,7 @@ type AccountRow = {
   firstName: string;
   lastName: string;
   email: string;
+  username?: string;
   phone?: string;
   role: Role;
   isActive?: boolean;
@@ -55,6 +63,7 @@ const FIELDS = {
   firstName: 1,
   lastName: 1,
   email: 1,
+  username: 1,
   phone: 1,
   role: 1,
   isActive: 1,
@@ -70,10 +79,14 @@ export class AccountService {
     @InjectModel(Session.name)
     private readonly sessionModel: Model<SessionDocument>,
     private readonly verification: EmailVerificationService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async get(userId: string): Promise<Account> {
-    const account = toAccount(await this.withPassword(userId));
+    const account = {
+      ...toAccount(await this.withPassword(userId)),
+      twoFactor: await this.twoFactor.state(userId),
+    };
     if (account.isEmailVerified) return account;
     const verification = await this.verification.state(userId);
     return verification ? { ...account, verification } : account;
@@ -107,6 +120,7 @@ export class AccountService {
     userId: string,
     currentPassword: string | undefined,
     newPassword: string,
+    currentSessionId?: string,
   ): Promise<{ ok: true }> {
     const row = await this.withPassword(userId);
     if (
@@ -121,16 +135,55 @@ export class AccountService {
       throw formError({
         newPassword: 'Choose a password you haven’t used here before',
       });
+    const weak = await passwordProblem(newPassword, row);
+    if (weak) throw formError({ newPassword: weak });
 
     const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     await this.userModel.updateOne(
       { _id: row._id },
       { $set: { [PASSWORD_FIELD]: hash } },
     );
+    await this.sessionModel.deleteMany({
+      userId: row._id,
+      ...(currentSessionId && { _id: { $ne: currentSessionId } }),
+    });
+    return { ok: true };
+  }
+
+  startTwoFactor(userId: string, code?: string): Promise<SetupInfo> {
+    return this.twoFactor.beginSetup(userId, code);
+  }
+
+  enableTwoFactor(userId: string, code: string) {
+    return this.twoFactor.enable(userId, code);
+  }
+
+  async disableTwoFactor(
+    userId: string,
+    code: string,
+    password: string | undefined,
+  ): Promise<{ ok: true }> {
+    const row = await this.withPassword(userId);
+    if (row.password && !(await checkPassword(password ?? '', row.password)))
+      throw formError(
+        { password: 'That isn’t your password' },
+        'Check your password',
+      );
+    await this.twoFactor.disable(userId, code);
+    return { ok: true };
+  }
+
+  newRecoveryCodes(userId: string, code: string) {
+    return this.twoFactor.regenerateRecoveryCodes(userId, code);
+  }
+
+  async forgetTrustedDevices(userId: string): Promise<{ ok: true }> {
+    await this.twoFactor.forgetDevices(userId);
     return { ok: true };
   }
 
   async signOutEverywhere(userId: string): Promise<{ ok: true }> {
+    await this.twoFactor.forgetDevices(userId);
     await this.userModel.updateOne(
       { _id: userId },
       { $inc: { tokenVersion: 1 } },

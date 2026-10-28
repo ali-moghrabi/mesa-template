@@ -12,9 +12,11 @@ import {
 } from './account.controller';
 import { AccountService } from './account.service';
 import { EmailVerificationService } from './email-verification.service';
+import { TwoFactorModule } from '../two-factor/two-factor.module';
 
 @Module({
   imports: [
+    TwoFactorModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Session.name, schema: SessionSchema },

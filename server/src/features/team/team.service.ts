@@ -17,6 +17,7 @@ import { allTermsMatch, searchTerms } from 'lib/search';
 import { Session, type SessionDocument } from 'src/schemas/session.schema';
 import { User, type UserDocument } from 'src/schemas/user.schema';
 import { TEAM_ROLES, type ListTeamQuery } from './dto/team.dto';
+import { TwoFactorService } from 'src/features/two-factor/two-factor.service';
 
 export const TEAM_PAGE_SIZE = 20;
 const CANDIDATE_LIMIT = 8;
@@ -33,10 +34,11 @@ export type TeamMember = {
   role: Role;
   isActive: boolean;
   isEmailVerified: boolean;
+  mfaEnabled: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
   isYou: boolean;
-  can: { roles: Role[]; changeStatus: boolean };
+  can: { roles: Role[]; changeStatus: boolean; resetTwoFactor: boolean };
   lockedReason?: string;
 };
 
@@ -67,6 +69,7 @@ type UserRow = {
   role: Role;
   isActive: boolean;
   isEmailVerified?: boolean;
+  mfaEnabled?: boolean;
   lastLoginAt?: Date;
   createdAt: Date;
 };
@@ -79,16 +82,17 @@ const PUBLIC_FIELDS = {
   role: 1,
   isActive: 1,
   isEmailVerified: 1,
+  mfaEnabled: 1,
   lastLoginAt: 1,
   createdAt: 1,
 } as const;
 
 export function teamRights(
   actor: Actor,
-  target: Pick<UserRow, '_id' | 'role'>,
+  target: Pick<UserRow, '_id' | 'role' | 'mfaEnabled'>,
 ): Pick<TeamMember, 'can' | 'lockedReason'> {
   const none = (lockedReason: string) => ({
-    can: { roles: [], changeStatus: false },
+    can: { roles: [], changeStatus: false, resetTwoFactor: false },
     lockedReason,
   });
   if (String(target._id) === actor.id)
@@ -103,6 +107,7 @@ export function teamRights(
     can: {
       roles: ROLES.filter((r) => r !== target.role && ROLE_RANK[r] <= mine),
       changeStatus: true,
+      resetTwoFactor: target.mfaEnabled === true,
     },
   };
 }
@@ -113,6 +118,7 @@ export class TeamService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Session.name)
     private readonly sessionModel: Model<SessionDocument>,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async list(query: ListTeamQuery, actor: Actor): Promise<TeamList> {
@@ -272,6 +278,23 @@ export class TeamService {
     return this.toMember(updated, actor);
   }
 
+  async resetTwoFactor(id: string, actor: Actor): Promise<TeamMember> {
+    const target = await this.findTarget(id);
+    const rights = teamRights(actor, target);
+    if (rights.lockedReason) throw new ForbiddenException(rights.lockedReason);
+    if (!target.mfaEnabled) return this.toMember(target, actor);
+
+    await this.twoFactor.reset(target._id);
+    await Promise.all([
+      this.userModel.updateOne(
+        { _id: target._id },
+        { $inc: { tokenVersion: 1 } },
+      ),
+      this.sessionModel.deleteMany({ userId: target._id }),
+    ]);
+    return this.toMember({ ...target, mfaEnabled: false }, actor);
+  }
+
   private async findTarget(id: string): Promise<UserRow> {
     if (!isValidObjectId(id))
       throw new NotFoundException('This account no longer exists');
@@ -305,6 +328,7 @@ export class TeamService {
       role: row.role,
       isActive: row.isActive !== false,
       isEmailVerified: row.isEmailVerified === true,
+      mfaEnabled: row.mfaEnabled === true,
       lastLoginAt: row.lastLoginAt,
       createdAt: row.createdAt,
       isYou: String(row._id) === actor.id,

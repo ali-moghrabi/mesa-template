@@ -321,7 +321,7 @@ export function FullMenu({
       <div
         ref={bar}
         className={cn(
-          "sticky top-(--nav-height,4.5rem) z-30 -mx-(--pad) border-b border-foreground/10 bg-background/90 px-(--pad) backdrop-blur-lg",
+          "sticky top-(--nav-offset,4.5rem) z-30 -mx-(--pad) border-b border-foreground/10 bg-background px-(--pad)",
           sidebar && "lg:hidden",
         )}
       >
@@ -399,7 +399,7 @@ export function FullMenu({
       >
         {sidebar && (
           <aside className="hidden lg:block">
-            <div className="sticky top-[calc(var(--nav-height,4.5rem)+1.5rem)] max-h-[calc(100dvh-var(--nav-height,4.5rem)-3rem)] overflow-y-auto pt-14 pb-6 scrollbar-thin">
+            <div className="sticky top-[calc(var(--nav-offset,4.5rem)+1.5rem)] max-h-[calc(100dvh-var(--nav-offset,4.5rem)-3rem)] overflow-y-auto pt-14 pb-6 scrollbar-thin">
               {showSearch && <SearchBox query={query} onChange={setQuery} />}
               <p className="mt-8 mb-2 text-xs font-semibold tracking-[0.16em] text-foreground/45 uppercase">
                 Categories

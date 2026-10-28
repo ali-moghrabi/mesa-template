@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Authorize } from 'decorators/permission.decorator';
 import { CurrentUser } from 'decorators/current-user.decorator';
 import {
@@ -41,6 +51,16 @@ export class TeamController {
     @CurrentUser() actor: Actor,
   ) {
     return this.team.changeRole(id, dto.role, dto.from, actor);
+  }
+
+  /**
+   * POST /api/v1/admin/team/:id/reset-2fa → the member. For a lost phone: their two-step
+   * sign-in is cleared, they're signed out, and they set it up again at their next sign-in.
+   */
+  @Post(':id/reset-2fa')
+  @HttpCode(HttpStatus.OK)
+  resetTwoFactor(@Param('id') id: string, @CurrentUser() actor: Actor) {
+    return this.team.resetTwoFactor(id, actor);
   }
 
   /** PATCH /api/v1/admin/team/:id/status { isActive } → the member. Disabling signs them out everywhere. */

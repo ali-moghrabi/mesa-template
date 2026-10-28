@@ -24,7 +24,7 @@ const AuthenticationDialog: React.FC<Props> = ({
   setSignUpDialogOpen,
 }) => {
   return (
-    <DialogContent className="overflow-hidden rounded-2xl border-border/60 bg-background p-0 shadow-2xl sm:max-w-md">
+    <DialogContent className="overflow-y-scroll max-h-[90vh] rounded-2xl border-border/60 bg-background p-0 shadow-2xl sm:max-w-md">
       <DialogHeader className="items-center px-6 pt-8 pb-5 text-center">
         <div className="flex items-center justify-center">
           <Image
@@ -53,6 +53,7 @@ const AuthenticationDialog: React.FC<Props> = ({
       </DialogHeader>
 
       <SignInForm
+        brandName={brandName}
         setSignInDialogOpen={setSignInDialogOpen}
         setSignUpDialogOpen={setSignUpDialogOpen}
       />

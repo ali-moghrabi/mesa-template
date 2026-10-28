@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Role } from "@/lib/auth/user-roles";
+import type { TwoFactorState } from "@/lib/two-factor";
 
 export type Account = {
   id: string;
@@ -14,6 +15,7 @@ export type Account = {
   lastLoginAt?: string;
   createdAt: string;
   verification?: VerificationState;
+  twoFactor?: TwoFactorState;
 };
 
 export type VerificationState = {

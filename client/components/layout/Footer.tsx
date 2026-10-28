@@ -193,7 +193,6 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
             <Socials socials={data.socials} className="mt-6" />
           </div>
 
-          {/* visit */}
           {hasVisit && (
             <Column title="Visit us">
               <address className="space-y-3.5 not-italic">
@@ -221,7 +220,6 @@ function ColumnsFooter({ data, bottom }: { data: Data; bottom: ReactNode }) {
             </Column>
           )}
 
-          {/* hours */}
           {data.weekly.length > 0 && (
             <Column title="Opening hours">
               <dl className="space-y-2.5 text-sm">
@@ -413,13 +411,20 @@ function Brand({ data, className }: { data: Data; className?: string }) {
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- SVG logos, no resizing needed */}
           <img
-            src={light || dark}
+            src={dark}
             alt=""
-            className={cn("h-9 w-auto", dark && "dark:hidden")}
+            className={cn(
+              "size-12 rounded-lg border object-cover",
+              dark && "dark:hidden",
+            )}
           />
           {dark && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={dark} alt="" className="hidden h-9 w-auto dark:block" />
+            <img
+              src={light}
+              alt=""
+              className="hidden size-12 rounded-lg object-cover dark:block"
+            />
           )}
         </>
       ) : (

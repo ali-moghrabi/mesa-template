@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { forwardIpHeaders } from "@/lib/api-forward";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -41,7 +42,7 @@ async function post(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(ip && { "X-Forwarded-For": ip }),
+      ...forwardIpHeaders(ip),
       "User-Agent": h.get("user-agent") ?? "",
     },
     body: JSON.stringify(body),

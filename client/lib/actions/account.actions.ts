@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { forwardIpHeaders } from "@/lib/api-forward";
 import { revalidatePath } from "next/cache";
 import {
   ACCESS_TOKEN_COOKIE,
@@ -20,6 +21,7 @@ import {
   type VerifyLinkInfo,
   type VerifyLinkResult,
 } from "@/lib/account";
+import type { SetupInfo } from "@/lib/two-factor";
 
 const invalid = (fieldErrors: Record<string, string>) => ({
   ok: false as const,
@@ -105,7 +107,7 @@ async function verifyCall(
       method,
       headers: {
         ...(body !== undefined && { "Content-Type": "application/json" }),
-        ...(ip && { "X-Forwarded-For": ip }),
+        ...forwardIpHeaders(ip),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: "no-store",
@@ -205,4 +207,86 @@ async function clearSessionCookies() {
   store.delete({ name: ACCESS_TOKEN_COOKIE, path: "/", domain });
   store.delete({ name: REFRESH_TOKEN_COOKIE, path: "/", domain });
   store.delete({ name: sessionOptions.cookieName, path: "/" });
+}
+
+/* ───────────── two-step sign-in ───────────── */
+
+const codeProblem = (code: unknown) =>
+  typeof code !== "string" || code.trim().length < 6 || code.length > 32
+    ? invalid({ code: "Enter the 6-digit code from your app" })
+    : null;
+
+/** Starts setup. When it's already on (moving to a new phone), a current code is needed. */
+export async function startTwoFactor(
+  code?: string,
+): Promise<ApiResult<SetupInfo>> {
+  await requireUser();
+  if (code !== undefined) {
+    const bad = codeProblem(code);
+    if (bad) return bad;
+  }
+  return adminFetch<SetupInfo>("/account/2fa/setup", {
+    method: "POST",
+    body: code ? { code: code.trim() } : {},
+  });
+}
+
+/** Confirms the app with its first code → the backup codes (shown once) */
+export async function enableTwoFactor(
+  code: string,
+): Promise<ApiResult<{ recoveryCodes: string[] }>> {
+  await requireUser();
+  const bad = codeProblem(code);
+  if (bad) return bad;
+  const result = await adminFetch<{ recoveryCodes: string[] }>(
+    "/account/2fa/enable",
+    { method: "POST", body: { code: code.trim() } },
+  );
+  if (result.ok) await refetchSessionCookie();
+  return result;
+}
+
+export async function disableTwoFactor(values: {
+  code: string;
+  password?: string;
+}): Promise<ApiResult<{ ok: true }>> {
+  await requireUser();
+  const bad = codeProblem(values?.code);
+  if (bad) return bad;
+  const result = await adminFetch<{ ok: true }>("/account/2fa/disable", {
+    method: "POST",
+    body: {
+      code: values.code.trim(),
+      ...(values.password && { password: values.password }),
+    },
+  });
+  if (result.ok) {
+    await refetchSessionCookie();
+    revalidatePath("/account");
+  }
+  return result;
+}
+
+export async function newRecoveryCodes(
+  code: string,
+): Promise<ApiResult<{ recoveryCodes: string[] }>> {
+  await requireUser();
+  const bad = codeProblem(code);
+  if (bad) return bad;
+  return adminFetch<{ recoveryCodes: string[] }>(
+    "/account/2fa/recovery-codes",
+    {
+      method: "POST",
+      body: { code: code.trim() },
+    },
+  );
+}
+
+export async function forgetTrustedDevices(): Promise<ApiResult<{ ok: true }>> {
+  await requireUser();
+  const result = await adminFetch<{ ok: true }>("/account/2fa/forget-devices", {
+    method: "POST",
+  });
+  if (result.ok) revalidatePath("/account");
+  return result;
 }

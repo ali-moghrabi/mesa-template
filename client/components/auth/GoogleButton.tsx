@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type SVGProps } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loginWithGoogle } from "@/lib/actions/auth.actions";
+import type { TwoFactorGate } from "@/lib/two-factor";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const SCRIPT_SRC = "https://accounts.google.com/gsi/client";
@@ -57,6 +58,7 @@ function loadGoogle(): Promise<GoogleOAuth2> {
 
 type Props = {
   onSignedIn: () => void;
+  onTwoFactor?: (gate: TwoFactorGate) => void;
   onError: (message: string) => void;
   disabled?: boolean;
   label?: string;
@@ -65,6 +67,7 @@ type Props = {
 
 export function GoogleButton({
   onSignedIn,
+  onTwoFactor,
   onError,
   disabled,
   label = "Continue with Google",
@@ -74,9 +77,9 @@ export function GoogleButton({
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const handlers = useRef({ onSignedIn, onError });
+  const handlers = useRef({ onSignedIn, onTwoFactor, onError });
   useEffect(() => {
-    handlers.current = { onSignedIn, onError };
+    handlers.current = { onSignedIn, onTwoFactor, onError };
   });
 
   useEffect(() => {
@@ -100,8 +103,17 @@ export function GoogleButton({
               return;
             }
             try {
-              await loginWithGoogle(response.code);
-              handlers.current.onSignedIn();
+              const result = await loginWithGoogle(response.code);
+              if (
+                result.status === "two-factor" &&
+                handlers.current.onTwoFactor
+              )
+                handlers.current.onTwoFactor(result.gate);
+              else if (result.status === "two-factor")
+                handlers.current.onError(
+                  "This account uses two-step sign-in. Sign in from the sign-in window.",
+                );
+              else handlers.current.onSignedIn();
             } catch (error) {
               handlers.current.onError(
                 error instanceof Error

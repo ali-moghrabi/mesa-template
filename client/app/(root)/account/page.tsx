@@ -20,9 +20,14 @@ const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setup?: string }>;
+}) {
   await requireUser();
-  const { features, business } = getConfig();
+  const { setup } = await searchParams;
+  const { features, business, brand } = getConfig();
   const result = await adminFetch<Account>("/account");
 
   if (!result.ok) {
@@ -80,6 +85,8 @@ export default async function AccountPage() {
         account={account}
         memberSince={memberSince}
         lastSignIn={lastSignIn}
+        brandName={brand.name}
+        setupTwoFactor={setup === "2fa"}
         features={{
           reservations: features?.reservations === true,
           ordering: features?.onlineOrdering === true,

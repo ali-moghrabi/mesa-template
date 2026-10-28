@@ -8,6 +8,7 @@ import {
   Info,
   MailWarning,
   Power,
+  ShieldCheck,
   SearchX,
   TriangleAlert,
   UsersRound,
@@ -367,6 +368,22 @@ function MemberName({ member }: { member: TeamMember }) {
         {member.isYou && (
           <span className="shrink-0 rounded-md bg-foreground px-1.5 py-px text-[10px] font-semibold tracking-wide text-background uppercase">
             You
+          </span>
+        )}
+        {member.mfaEnabled ? (
+          <span
+            title="Two-step sign-in is on"
+            className="shrink-0 text-emerald-600 dark:text-emerald-400"
+          >
+            <ShieldCheck className="size-4" />
+            <span className="sr-only">Two-step sign-in is on</span>
+          </span>
+        ) : (
+          <span
+            title="Two-step sign-in isn't set up yet: asked at their next sign-in"
+            className="shrink-0 rounded-md bg-amber-500/12 px-1.5 py-px text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-300"
+          >
+            No 2FA
           </span>
         )}
       </p>

@@ -1,6 +1,7 @@
 import "server-only";
 import { ACCESS_TOKEN_COOKIE } from "@/constants/constants";
 import { getCurrentToken } from "@/lib/auth/server";
+import { requestIpHeaders } from "@/lib/api-forward";
 import { toApiQuery, type MenuFilters } from "./params";
 import type {
   AdminMenuCategory,
@@ -58,6 +59,7 @@ export async function adminFetch<T>(
         headers: {
           Authorization: `Bearer ${token}`,
           Cookie: `${ACCESS_TOKEN_COOKIE}=${token}`,
+          ...(await requestIpHeaders()),
           ...(body !== undefined &&
             !isForm && { "Content-Type": "application/json" }),
         },

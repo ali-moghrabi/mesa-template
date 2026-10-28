@@ -11,6 +11,7 @@ import {
   type Permission,
   type Role,
 } from 'lib/constants/roles';
+import { mfaRequiredFor } from 'lib/security/mfa-policy';
 
 export const PERMISSIONS_KEY = 'permissions';
 
@@ -25,11 +26,11 @@ export class PermissionsGuard implements CanActivate {
     );
     if (!required || required.length === 0) return true;
 
-    const user = context
-      .switchToHttp()
-      .getRequest<
-        Request & { user?: { role?: Role; isActive?: boolean } }
-      >().user;
+    const user = context.switchToHttp().getRequest<
+      Request & {
+        user?: { role?: Role; isActive?: boolean; mfaEnabled?: boolean };
+      }
+    >().user;
 
     if (
       !user ||
@@ -37,6 +38,14 @@ export class PermissionsGuard implements CanActivate {
       !hasAllPermissions(user.role, required)
     ) {
       throw new ForbiddenException('You do not have permission to do this');
+    }
+    if (mfaRequiredFor(user.role) && user.mfaEnabled !== true) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'MFA_SETUP_REQUIRED',
+        message:
+          'Set up two-step sign-in on your account page to use the admin panel.',
+      });
     }
     return true;
   }

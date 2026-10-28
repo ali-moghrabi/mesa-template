@@ -66,3 +66,24 @@ export class VerifyTokenDto {
   @Matches(VERIFY_TOKEN_PATTERN, { message: 'This link is not valid.' })
   token!: string;
 }
+
+export class TwoFactorCodeDto {
+  @IsString()
+  @MinLength(6, { message: 'Enter the 6-digit code' })
+  @MaxLength(32)
+  code!: string;
+}
+
+export class StartTwoFactorDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  code?: string;
+}
+
+export class DisableTwoFactorDto extends TwoFactorCodeDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(PASSWORD_MAX)
+  password?: string;
+}
