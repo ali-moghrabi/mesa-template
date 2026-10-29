@@ -1,0 +1,39 @@
+.ticket-stub {
+  --notch: 11px;
+  --at: calc(100% - var(--stub, 7.75rem));
+  -webkit-mask:
+    radial-gradient(circle var(--notch) at 0 var(--at), #0000 97%, #000 100%) 0
+      0 / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% var(--at), #0000 97%, #000 100%)
+      100% 0 / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle var(--notch) at 0 var(--at), #0000 97%, #000 100%) 0
+      0 / 51% 100% no-repeat,
+    radial-gradient(circle var(--notch) at 100% var(--at), #0000 97%, #000 100%)
+      100% 0 / 51% 100% no-repeat;
+}
+
+@media (min-width: 768px) {
+  .ticket-side {
+    --notch: 12px;
+    --at: calc(100% - var(--stub, 21rem));
+    -webkit-mask:
+      radial-gradient(circle var(--notch) at var(--at) 0, #0000 97%, #000 100%)
+        0 0 / 100% 51% no-repeat,
+      radial-gradient(
+          circle var(--notch) at var(--at) 100%,
+          #0000 97%,
+          #000 100%
+        )
+        0 100% / 100% 51% no-repeat;
+    mask:
+      radial-gradient(circle var(--notch) at var(--at) 0, #0000 97%, #000 100%)
+        0 0 / 100% 51% no-repeat,
+      radial-gradient(
+          circle var(--notch) at var(--at) 100%,
+          #0000 97%,
+          #000 100%
+        )
+        0 100% / 100% 51% no-repeat;
+  }
+}

@@ -31,6 +31,15 @@
   padding: 0.12em 0.08em 0.1em 0.02em;
   margin: -0.12em -0.08em -0.1em -0.02em;
 }
+.hero-title-light {
+  text-shadow: none;
+}
+.hero-title-light .hero-accent,
+.hero-title-light .hero-end {
+  color: var(--primary, #c2410c);
+  text-shadow: none;
+}
+
 .hero-end {
   color: color-mix(in oklab, var(--primary, #c2410c) 82%, white);
 }

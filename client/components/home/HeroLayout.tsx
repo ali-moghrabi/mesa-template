@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Bricolage_Grotesque, Instrument_Serif } from "next/font/google";
 import type { CSSProperties } from "react";
 import { MapPin, Phone } from "lucide-react";
 import type { SiteConfig } from "@/config/schema";
@@ -9,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { BookingBar } from "./BookingBar";
 import type { HeroProps } from "./schema";
 import { HeroMedia, HeroMediaControls, type HeroVariant } from "./HeroMedia";
+import { displayFonts, parseTitle } from "./display-title";
 import "./hero.css";
 
 export type HeroLayoutProps = {
@@ -22,46 +22,6 @@ const BUTTON =
   "inline-flex min-h-13.5 items-center justify-center rounded-[calc(var(--radius)*1.2)] px-7 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
 const VARIANTS: HeroVariant[] = ["fullscreen", "video", "slider"];
-
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  axes: ["opsz"],
-  variable: "--font-hero",
-  display: "swap",
-});
-const accent = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: "italic",
-  variable: "--font-hero-accent",
-  display: "swap",
-});
-
-type TitleWord = { text: string; accent: boolean };
-
-function parseTitle(title: string): { words: TitleWord[]; end: string } {
-  let text = title.trim();
-  const endMatch = /[.!]$/.exec(text.replace(/\*+$/, ""));
-  const end = endMatch ? endMatch[0] : "";
-  if (end) text = text.replace(/[.!](\**)$/, "$1");
-
-  const words: TitleWord[] = [];
-  if (text.includes("*")) {
-    text.split("*").forEach((part, i) => {
-      for (const word of part.trim().split(/\s+/).filter(Boolean))
-        words.push({ text: word, accent: i % 2 === 1 });
-    });
-  } else {
-    const all = text.split(/\s+/).filter(Boolean);
-    all.forEach((word, i) =>
-      words.push({
-        text: word,
-        accent: all.length > 1 && i === all.length - 1,
-      }),
-    );
-  }
-  return { words, end };
-}
 
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
@@ -94,8 +54,7 @@ async function HeroLayout({
       data-nav-dark=""
       aria-labelledby="hero-title"
       className={cn(
-        display.variable,
-        accent.variable,
+        displayFonts,
         "relative isolate flex min-h-svh flex-col overflow-hidden bg-neutral-950 text-white [--pad:clamp(1.1rem,4vw,3.5rem)]",
       )}
     >

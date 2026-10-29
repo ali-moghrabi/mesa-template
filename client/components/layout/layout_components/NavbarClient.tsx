@@ -8,6 +8,7 @@ import { ArrowUpIcon, X, Menu } from "lucide-react";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import AuthenticationDialog from "./AuthenticationDialog";
+import { AnnouncementBar } from "./AnnouncementBar";
 import Image from "next/image";
 import SignUpForm from "@/components/auth/SignUpForm";
 import QueryWrapper from "@/components/providers/query-wrapper";
@@ -64,7 +65,6 @@ export function NavbarClient({
   const [open, setOpen] = useState(false);
   const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const [signUpDialogOpen, setSignUpDialogOpen] = useState(false);
-  const [barDismissed, setBarDismissed] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -116,7 +116,6 @@ export function NavbarClient({
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
-  const showBar = announcement && !barDismissed;
   const collapseBar = scrolled || open;
   const solid = variant === "solid" || scrolled;
   const onPhoto = !solid && darkHero;
@@ -130,39 +129,13 @@ export function NavbarClient({
           !sticky && "absolute",
         )}
       >
-        {showBar && (
-          <div
-            className={cn(
-              "relative flex items-center justify-center gap-4 overflow-hidden bg-white dark:bg-neutral-900 px-10 text-xs text-neutral-900 dark:text-gray-50 transition-all duration-300",
-              collapseBar ? "max-h-0 py-0" : "max-h-16 py-2",
-            )}
-          >
-            <p className="text-start font-medium">{announcement.text}</p>
-            {announcement.link && (
-              <Link
-                href={announcement.link.href}
-                className={cn(
-                  "font-bold whitespace-nowrap underline underline-offset-4 hover:opacity-80 transition",
-                  FOCUS,
-                )}
-              >
-                {announcement.link.label}
-              </Link>
-            )}
-            {announcement.dismissible && (
-              <button
-                type="button"
-                aria-label="Dismiss announcement"
-                onClick={() => setBarDismissed(true)}
-                className={cn(
-                  "absolute top-1/2 right-2 size-8 -translate-y-1/2 text-xl opacity-70 hover:opacity-100 cursor-pointer transition bg-gray-100 dark:bg-neutral-900",
-                  FOCUS,
-                )}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+        {announcement && (
+          <AnnouncementBar
+            text={announcement.text}
+            link={announcement.link}
+            dismissible={announcement.dismissible}
+            collapsed={collapseBar}
+          />
         )}
 
         <div
