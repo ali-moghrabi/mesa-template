@@ -4,7 +4,7 @@ import { ArrowRight, CalendarHeart, Phone } from "lucide-react";
 import { z } from "zod";
 import { getConfig } from "@/config/loader";
 import { reservationsEnabled } from "@/lib/reservations-server";
-import { RESERVATIONS_ROUTE } from "@/lib/reservations";
+import { RESERVATIONS_ROUTE } from "@/lib/reservation-routes";
 
 export const RESERVATION_CTA_VARIANTS = ["banner", "inline"] as const;
 

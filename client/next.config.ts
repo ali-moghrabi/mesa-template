@@ -35,6 +35,7 @@ const nextConfig: NextConfig = {
     remotePatterns: media
       ? [{ protocol: "https", hostname: media.hostname, pathname: "/**" }]
       : [],
+    formats: ["image/avif", "image/webp"],
     qualities: [75, 90],
     minimumCacheTTL: 2_678_400,
   },
@@ -52,6 +53,15 @@ const nextConfig: NextConfig = {
           {
             key: "Content-Security-Policy",
             value: csp("'self'"),
+          },
+        ],
+      },
+      {
+        source: "/site/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
           },
         ],
       },

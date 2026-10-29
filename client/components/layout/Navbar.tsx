@@ -1,16 +1,12 @@
 import { getConfig } from "@/config/loader";
 import { NavbarClient } from "./layout_components/NavbarClient";
-import { getUserSession } from "@/lib/auth/get-user";
 
-export async function Navbar() {
+export function Navbar() {
   const { brand, layout, business, features, menu } = getConfig();
   const { navbar, announcementBar: bar } = layout;
 
-  const user = await getUserSession();
-
   return (
     <NavbarClient
-      user={user}
       brandName={brand.name}
       lightLogo={brand.logo.light}
       darkLogo={brand.logo.dark!}

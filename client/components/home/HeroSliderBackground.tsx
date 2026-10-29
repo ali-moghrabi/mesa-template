@@ -9,6 +9,9 @@ export function HeroSliderBackground() {
   const { slides, index, previous, interval, paused, reducedMotion } =
     useHeroMedia();
   const drift = { "--kb": `${interval + 2000}ms` } as CSSProperties;
+  const count = slides.length;
+  const wanted = (i: number) =>
+    i === index || i === previous || i === (index + 1) % count;
 
   return (
     <>
@@ -34,15 +37,17 @@ export function HeroSliderBackground() {
                 paused && "paused",
               )}
             >
-              <Image
-                src={`/${src}`}
-                alt=""
-                fill
-                preload={i === 0}
-                loading={i === 0 ? undefined : "eager"}
-                sizes="100vw"
-                className="object-cover"
-              />
+              {wanted(i) && (
+                <Image
+                  src={`/${src}`}
+                  alt=""
+                  fill
+                  preload={i === 0}
+                  loading={i === 0 ? undefined : "eager"}
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              )}
             </div>
           </div>
         );

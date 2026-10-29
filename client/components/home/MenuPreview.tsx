@@ -47,6 +47,7 @@ type Section = z.infer<typeof sectionSchema>;
 
 type Props = {
   section?: unknown;
+  first?: boolean;
 };
 
 function homeSection(): unknown {
@@ -58,7 +59,7 @@ function homeSection(): unknown {
   return pages?.home?.sections?.find((s) => s?.type === "menuPreview") ?? {};
 }
 
-export default async function MenuPreview({ section }: Props) {
+export default async function MenuPreview({ section, first = false }: Props) {
   const config = sectionSchema.parse(section ?? homeSection());
   if (!config.enabled) return null;
 
@@ -77,11 +78,26 @@ export default async function MenuPreview({ section }: Props) {
     >
       <div className="mx-auto max-w-6xl">
         {config.variant === "list" ? (
-          <ListLook config={config} dishes={dishes} currency={currency} />
+          <ListLook
+            config={config}
+            dishes={dishes}
+            currency={currency}
+            eager={first}
+          />
         ) : config.variant === "carousel" ? (
-          <CarouselLook config={config} dishes={dishes} currency={currency} />
+          <CarouselLook
+            config={config}
+            dishes={dishes}
+            currency={currency}
+            eager={first}
+          />
         ) : (
-          <GridLook config={config} dishes={dishes} currency={currency} />
+          <GridLook
+            config={config}
+            dishes={dishes}
+            currency={currency}
+            eager={first}
+          />
         )}
       </div>
     </section>
@@ -92,6 +108,11 @@ type LookProps = {
   config: Section;
   dishes: PublicDish[];
   currency: CurrencyConfig;
+  /**
+   * Usually false: below the hero, these photos must not compete with the hero photo (the
+   * page's main image). Only when the menu is the first thing on the page do they jump ahead.
+   */
+  eager: boolean;
 };
 
 function Heading({
@@ -348,11 +369,12 @@ function Photo({
   );
 }
 
-const dishHref = (dish: PublicDish) => `/menu#${dish.category.slug}`;
+/** Straight to the dish on the menu page (it opens the dish's category, then scrolls to it) */
+const dishHref = (dish: PublicDish) => `/menu#dish-${dish.slug}`;
 const CARD_LINK =
   "group block rounded-[calc(var(--radius)*2)] outline-offset-4 focus-visible:outline-2 focus-visible:outline-primary";
 
-function GridLook({ config, dishes, currency }: LookProps) {
+function GridLook({ config, dishes, currency, eager }: LookProps) {
   return (
     <>
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -370,7 +392,7 @@ function GridLook({ config, dishes, currency }: LookProps) {
               <div className="relative aspect-4/3 overflow-hidden rounded-[calc(var(--radius)*2)] bg-foreground/6">
                 <Photo
                   dish={dish}
-                  priority={i < 3}
+                  priority={eager && i < 3}
                   sizes="(min-width: 1024px) 370px, (min-width: 640px) 50vw, 78vw"
                 />
                 <Tags dish={dish} className="absolute inset-x-3 top-3" />
@@ -408,7 +430,7 @@ function GridLook({ config, dishes, currency }: LookProps) {
   );
 }
 
-function ListLook({ config, dishes, currency }: LookProps) {
+function ListLook({ config, dishes, currency, eager }: LookProps) {
   const featured = dishes.find((d) => d.image) ?? dishes[0];
   return (
     <div className="grid gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
@@ -423,7 +445,7 @@ function ListLook({ config, dishes, currency }: LookProps) {
           <div className="relative aspect-4/5 overflow-hidden rounded-[calc(var(--radius)*2)] bg-foreground/6">
             <Photo
               dish={featured}
-              priority
+              priority={eager}
               sizes="(min-width: 1024px) 740px, 0px"
             />
             <div
@@ -455,7 +477,7 @@ function ListLook({ config, dishes, currency }: LookProps) {
                 className="group -mx-3 flex gap-4 rounded-[calc(var(--radius)*1.4)] px-3 py-5 transition-colors hover:bg-foreground/3 sm:gap-5 sm:py-6"
               >
                 <div className="relative size-20 shrink-0 overflow-hidden rounded-[calc(var(--radius)*1.4)] bg-foreground/6 sm:size-24">
-                  <Photo dish={dish} priority={i < 2} sizes="192px" />
+                  <Photo dish={dish} priority={eager && i < 2} sizes="192px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-3">
@@ -492,7 +514,7 @@ function ListLook({ config, dishes, currency }: LookProps) {
   );
 }
 
-function CarouselLook({ config, dishes, currency }: LookProps) {
+function CarouselLook({ config, dishes, currency, eager }: LookProps) {
   return (
     <>
       <MenuPreviewRail header={<Heading config={config} />}>
@@ -505,7 +527,7 @@ function CarouselLook({ config, dishes, currency }: LookProps) {
               <div className="relative aspect-4/5 overflow-hidden rounded-[calc(var(--radius)*2)] bg-foreground/6">
                 <Photo
                   dish={dish}
-                  priority={i < 3}
+                  priority={eager && i < 3}
                   sizes="(min-width: 1024px) 600px, (min-width: 640px) 77vw, 134vw"
                 />
                 <div

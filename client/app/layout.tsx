@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toast";
 import { rootMetadata, rootViewport } from "@/config/seo";
 import { StructuredData } from "@/components/seo/StructuredData";
 import { DemoPromo } from "@/components/onboarding/DemoPromo";
+import { SIGNED_IN_HINT_COOKIE } from "@/constants/constants";
 import "./globals.css";
 
 const font = DM_Sans({
@@ -31,6 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <style href="mesa-theme" precedence="default">
           {generateThemeCss(theme)}
         </style>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `document.cookie.indexOf("${SIGNED_IN_HINT_COOKIE}=")>-1&&document.documentElement.setAttribute("data-signed-in","")`,
+          }}
+        />
       </head>
       <body>
         <DemoPromo />

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useSessionUser } from "@/hooks/use-session-user";
 import {
   getMyNewsletterStatus,
   unsubscribeMe,
@@ -17,8 +18,11 @@ type Step =
 
 export function NewsletterFooterLink({ className }: { className?: string }) {
   const [step, setStep] = useState<Step>("hidden");
+  const { user } = useSessionUser();
+  const userId = user?._id;
 
   useEffect(() => {
+    if (!userId) return;
     let alive = true;
     getMyNewsletterStatus()
       .then((status) => {
@@ -28,7 +32,7 @@ export function NewsletterFooterLink({ className }: { className?: string }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [userId]);
 
   const leave = async () => {
     setStep("working");
@@ -39,7 +43,7 @@ export function NewsletterFooterLink({ className }: { className?: string }) {
     setStep(result.ok ? "done" : "error");
   };
 
-  if (step === "hidden") return null;
+  if (!userId || step === "hidden") return null;
   if (step === "done")
     return (
       <span className={cn("text-foreground/50", className)}>

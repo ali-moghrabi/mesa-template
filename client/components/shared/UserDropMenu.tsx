@@ -33,6 +33,7 @@ import { ACTIVE_ORDERS_KEY } from "@/lib/checkout";
 import { ADMIN_ROUTE, isMatch, PROTECTED_ROUTES } from "@/lib/auth/routes";
 import { canAccessAdmin } from "@/lib/auth/user-roles";
 import { useSessionRefresh } from "@/hooks/use-session-refresh";
+import { notifySessionChanged } from "@/hooks/use-session-user";
 import { cn } from "@/lib/utils";
 
 export const ACCOUNT_ROUTES = {
@@ -170,6 +171,7 @@ const UserDropMenu: React.FC<UserDropMenuProps> = ({
       toast.add({ title: "Signed out. See you soon!", type: "success" });
 
       if (inAdmin || isMatch(pathname, PROTECTED_ROUTES)) {
+        notifySessionChanged();
         router.push("/");
         router.refresh();
       } else {

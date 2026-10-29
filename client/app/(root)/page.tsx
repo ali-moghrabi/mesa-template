@@ -20,6 +20,8 @@ export function generateMetadata(): Metadata {
   });
 }
 
+export const revalidate = 60;
+
 const HomePage: React.FC = async () => {
   const config = getConfig();
 
@@ -27,7 +29,7 @@ const HomePage: React.FC = async () => {
     <>
       {config.pages.home.sections
         .filter((section) => section.enabled)
-        .map((section) => {
+        .map((section, index) => {
           switch (section.type) {
             case "hero":
               return (
@@ -50,7 +52,7 @@ const HomePage: React.FC = async () => {
                 />
               );
             case "menuPreview":
-              return <MenuPreview key={section.id} />;
+              return <MenuPreview key={section.id} first={index === 0} />;
             case "stats":
               return <StatsPreview key={section.id} />;
             case "hoursLocation":

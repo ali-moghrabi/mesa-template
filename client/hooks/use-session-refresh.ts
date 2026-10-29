@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useTransition } from "react";
 import { refetchSessionCookie } from "@/lib/auth/session-updates";
+import { notifySessionChanged } from "@/hooks/use-session-user";
 
 type SyncOptions = {
   refetchUser?: boolean;
@@ -16,6 +17,7 @@ export function useSessionRefresh() {
   const syncSession = useCallback(
     async ({ refetchUser = false, then }: SyncOptions = {}) => {
       if (refetchUser) await refetchSessionCookie();
+      notifySessionChanged();
       startTransition(() => {
         router.refresh();
         then?.();

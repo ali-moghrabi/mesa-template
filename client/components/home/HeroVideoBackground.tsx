@@ -21,7 +21,16 @@ export function HeroVideoBackground() {
       (navigator as NavigatorWithConnection).connection?.saveData === true;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (still || saveData) return;
-    el.play().catch(() => {});
+    const start = () => {
+      el.preload = "auto";
+      el.play().catch(() => {});
+    };
+    if (document.readyState === "complete") {
+      start();
+      return;
+    }
+    window.addEventListener("load", start, { once: true });
+    return () => window.removeEventListener("load", start);
   }, [ref]);
 
   return (
@@ -42,7 +51,7 @@ export function HeroVideoBackground() {
           muted
           loop
           playsInline
-          preload="auto"
+          preload="none"
           tabIndex={-1}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

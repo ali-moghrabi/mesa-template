@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-export const RESERVATIONS_ROUTE = "/reservations";
-export const MY_RESERVATIONS_ROUTE = "/account/reservations";
+export {
+  RESERVATIONS_ROUTE,
+  MY_RESERVATIONS_ROUTE,
+} from "./reservation-routes";
 
 export type ReservationStatus =
   | "pending"

@@ -135,6 +135,10 @@ const defaultOptions = (dish: PublicDish) =>
       .map((o) => o.id),
   );
 
+/** The dish someone came to see (from a link): a soft ring for a moment */
+const SPOTLIGHT =
+  "outline-2 outline-offset-6 outline-transparent transition-[outline-color] duration-700 data-spotlight:outline-primary";
+
 export function FullMenu({
   categories,
   variant,
@@ -284,6 +288,56 @@ export function FullMenu({
   };
 
   const pick = paged ? select : jump;
+
+  const [target, setTarget] = useState<{
+    dish?: string;
+    category: string;
+  } | null>(null);
+  useEffect(() => {
+    const go = () => {
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      if (!hash) return;
+      const dish = hash.startsWith("dish-") ? hash.slice(5) : undefined;
+      const category = dish
+        ? categories.find((c) => c.items.some((d) => d.slug === dish))
+        : categories.find((c) => c.slug === hash);
+      if (!category) return;
+      setQuery("");
+      setDiets(new Set());
+      setActive(category.slug);
+      setTarget({ dish, category: category.slug });
+    };
+    const first = requestAnimationFrame(go);
+    window.addEventListener("hashchange", go);
+    return () => {
+      cancelAnimationFrame(first);
+      window.removeEventListener("hashchange", go);
+    };
+  }, [categories]);
+
+  useEffect(() => {
+    if (!target) return;
+    const frame = requestAnimationFrame(() => {
+      setTarget(null);
+      const el = target.dish
+        ? document.querySelector<HTMLElement>(
+            `[data-dish="${CSS.escape(target.dish)}"]`,
+          )
+        : sections.current.get(target.category);
+      if (!el) return;
+      jumping.current = true;
+      el.scrollIntoView({
+        behavior: smooth(),
+        block: target.dish ? "center" : "start",
+      });
+      window.setTimeout(() => (jumping.current = false), 900);
+      if (target.dish) {
+        el.setAttribute("data-spotlight", "");
+        window.setTimeout(() => el.removeAttribute("data-spotlight"), 2200);
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
 
   const toggleDiet = (tag: string) =>
     setDiets((now) => {
@@ -750,7 +804,13 @@ function DishRow({
   const soldOut = !dish.isAvailable;
   const src = showImage ? mediaSrc(dish.image) : null;
   return (
-    <li className="group relative min-w-0">
+    <li
+      data-dish={dish.slug}
+      className={cn(
+        "group relative min-w-0 rounded-[calc(var(--radius)*1.5)]",
+        SPOTLIGHT,
+      )}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -806,7 +866,10 @@ function DishLine({ dish, currency, ordering, showImage, onOpen }: DishProps) {
   const src = showImage ? mediaSrc(dish.image) : null;
   const { amount, from, was } = priceOf(dish);
   return (
-    <li className="border-b border-foreground/10">
+    <li
+      data-dish={dish.slug}
+      className={cn("border-b border-foreground/10", SPOTLIGHT)}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -882,7 +945,13 @@ function DishTile({
   const soldOut = !dish.isAvailable;
   const src = showImage ? mediaSrc(dish.image) : null;
   return (
-    <li className="group relative min-w-0">
+    <li
+      data-dish={dish.slug}
+      className={cn(
+        "group relative min-w-0 rounded-[calc(var(--radius)*1.5)]",
+        SPOTLIGHT,
+      )}
+    >
       <button
         type="button"
         onClick={onOpen}

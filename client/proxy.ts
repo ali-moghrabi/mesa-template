@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
+  SIGNED_IN_HINT_COOKIE,
 } from "@/constants/constants";
 import { sessionOptions } from "@/lib/auth/session-options";
 import {
@@ -32,6 +33,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const jar = new CookieJar(request);
   const user = await resolveSession(request, jar);
+  syncSignedInHint(request, jar);
 
   const deniedAdmin =
     isMatch(pathname, [ADMIN_ROUTE]) && !canAccessAdmin(user?.role);
@@ -47,6 +49,22 @@ export async function proxy(request: NextRequest) {
   return jar.applyTo(
     NextResponse.next({ request: { headers: request.headers } }),
   );
+}
+
+function syncSignedInHint(request: NextRequest, jar: CookieJar) {
+  const hasSession =
+    request.cookies.has(ACCESS_TOKEN_COOKIE) ||
+    request.cookies.has(REFRESH_TOKEN_COOKIE);
+  const hinted = request.cookies.has(SIGNED_IN_HINT_COOKIE);
+  if (hasSession && !hinted)
+    jar.set(SIGNED_IN_HINT_COOKIE, "1", {
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false,
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  else if (!hasSession && hinted) jar.delete(SIGNED_IN_HINT_COOKIE);
 }
 
 async function resolveSession(
@@ -152,5 +170,26 @@ class CookieJar {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)"],
+  matcher: [
+    "/account/:path*",
+    "/payment/:path*",
+    "/admin/:path*",
+    "/api/session",
+    {
+      source: "/((?!api|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
+      has: [{ type: "cookie", key: "MESA_ACCESS_TOKENV2" }],
+    },
+    {
+      source: "/((?!api|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
+      has: [{ type: "cookie", key: "MESA_REFRESH_TOKENV2" }],
+    },
+    {
+      source: "/((?!api|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
+      has: [{ type: "cookie", key: "mesa_session" }],
+    },
+    {
+      source: "/((?!api|_next/static|_next/image|.*\\.[a-zA-Z0-9]+$).*)",
+      has: [{ type: "cookie", key: "mesa_signed_in" }],
+    },
+  ],
 };

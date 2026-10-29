@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RESERVATIONS_ROUTE } from "@/lib/reservations";
+import { RESERVATIONS_ROUTE } from "@/lib/reservation-routes";
 import { cn } from "@/lib/utils";
 import { DatePicker, dayLabel } from "./DatePicker";
 

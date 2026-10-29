@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useId, useState, type SubmitEvent } from "react";
 import {
   ArrowRight,
   Loader2,
@@ -15,11 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { subscribeNewsletter } from "@/lib/actions/newsletter.actions";
-import {
-  newsletterSchema,
-  type NewsletterSource,
-  type NewsletterValues,
-} from "@/lib/newsletter";
+import type { NewsletterSource } from "@/lib/newsletter";
 
 type Props = {
   tone?: "light" | "onPrimary";
@@ -32,6 +26,15 @@ type Props = {
 
 type Done = { status: "pending" | "already"; email: string };
 
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function checkEmail(raw: string): string | null {
+  const email = raw.trim();
+  if (!email) return "Enter your email";
+  if (email.length > 120) return "That email is too long";
+  if (!EMAIL.test(email)) return "Enter a valid email";
+  return null;
+}
+
 export function NewsletterForm({
   tone = "light",
   placeholder = "Your email address",
@@ -41,24 +44,36 @@ export function NewsletterForm({
   className,
 }: Props) {
   const pathname = usePathname();
-  const form = useForm<NewsletterValues>({
-    resolver: zodResolver(newsletterSchema),
-    defaultValues: { email: "", website: "" },
-    mode: "onSubmit",
-  });
+  const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
+  const [sending, setSending] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const sending = form.formState.isSubmitting;
-  const fieldError = form.formState.errors.email?.message;
   const onPrimary = tone === "onPrimary";
   const errorId = useId();
 
-  const submit = async (values: NewsletterValues) => {
+  const submit = async (event: SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (sending) return;
     setError(null);
-    const result = await subscribeNewsletter(values, source, pathname);
-    if (result.ok)
-      setDone({ status: result.status, email: values.email.trim() });
-    else setError(result.message);
+    const problem = checkEmail(email);
+    setFieldError(problem);
+    if (problem) return;
+    setSending(true);
+    try {
+      const result = await subscribeNewsletter(
+        { email: email.trim(), website },
+        source,
+        pathname,
+      );
+      if (result.ok) setDone({ status: result.status, email: email.trim() });
+      else setError(result.message);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   if (done) {
@@ -126,7 +141,8 @@ export function NewsletterForm({
             <button
               type="button"
               onClick={() => {
-                form.reset({ email: "", website: "" });
+                setEmail("");
+                setWebsite("");
                 setDone(null);
               }}
               className={cn(
@@ -145,11 +161,7 @@ export function NewsletterForm({
   const message = fieldError ?? error;
 
   return (
-    <form
-      onSubmit={form.handleSubmit(submit)}
-      noValidate
-      className={cn("w-full", className)}
-    >
+    <form onSubmit={submit} noValidate className={cn("w-full", className)}>
       <div
         className={cn(
           "flex flex-col gap-2 rounded-[calc(var(--radius)*2)] p-1.5 transition min-[420px]:flex-row min-[420px]:items-center",
@@ -179,7 +191,12 @@ export function NewsletterForm({
             aria-invalid={!!message}
             aria-describedby={message ? errorId : undefined}
             disabled={sending}
-            {...form.register("email")}
+            name="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldError) setFieldError(null);
+            }}
             className={cn(
               "h-11 w-full min-w-0 bg-transparent text-[15px] outline-none",
               onPrimary
@@ -216,7 +233,9 @@ export function NewsletterForm({
             type="text"
             tabIndex={-1}
             autoComplete="off"
-            {...form.register("website")}
+            name="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
           />
         </label>
       </div>
