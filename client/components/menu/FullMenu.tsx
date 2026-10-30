@@ -1304,10 +1304,14 @@ function DishSheet({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "flex max-h-[92dvh] flex-col gap-0 overflow-hidden border-0 p-0 text-left sm:max-h-[calc(100dvh-3rem)] sm:max-w-xl",
+          // `!` because the base dialog is `grid gap-4 p-4`, and those would win otherwise
+          "flex! max-h-[92dvh] flex-col gap-0! overflow-hidden border-0 p-0! text-left sm:max-h-[calc(100dvh-3rem)] sm:max-w-xl",
           "max-sm:top-auto max-sm:bottom-0 max-sm:max-w-none max-sm:translate-y-0 max-sm:rounded-t-3xl max-sm:rounded-b-none",
         )}
       >
+        {/* the option labels are `relative`: their hidden inputs are absolutely positioned, and
+            without it they'd sit relative to this panel, so clicking one scrolled the whole panel
+            (body and footer slid up, leaving a blank strip at the bottom) */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {src ? (
             <div ref={photo} className="relative aspect-16/10 bg-foreground/5">
@@ -1342,7 +1346,7 @@ function DishSheet({
               <DishTitleBadges dish={dish} />
             </div>
             {dish.description && (
-              <DialogDescription className="mt-3 text-base leading-relaxed text-pretty text-foreground/70">
+              <DialogDescription className="mt-3 text-base! leading-relaxed text-pretty text-foreground/70!">
                 {dish.description}
               </DialogDescription>
             )}
@@ -1390,7 +1394,7 @@ function DishSheet({
                       <label
                         key={variant.id}
                         className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 transition-all",
+                          "relative flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 transition-all",
                           on
                             ? "border-primary bg-primary/6 ring-1 ring-primary"
                             : "border-foreground/15 hover:border-foreground/30",
@@ -1481,7 +1485,7 @@ function DishSheet({
                         <label
                           key={option.id}
                           className={cn(
-                            "flex cursor-pointer items-center gap-3 px-3.5 py-3",
+                            "relative flex cursor-pointer items-center gap-3 px-3.5 py-3",
                             (off || full) && "cursor-not-allowed opacity-50",
                           )}
                         >

@@ -507,7 +507,7 @@ function SalePreview({
   });
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92svh] gap-0 overflow-hidden p-0 sm:max-w-3xl">
+      <DialogContent className="max-h-[92svh] gap-0! overflow-hidden p-0! sm:max-w-3xl!">
         <DialogHeader className="border-b border-border p-5">
           <DialogTitle>The next sale email</DialogTitle>
           <DialogDescription>

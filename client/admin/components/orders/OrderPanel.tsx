@@ -1108,7 +1108,7 @@ function CancelDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
-      <DialogContent className="text-left sm:max-w-md">
+      <DialogContent className="text-left sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>Cancel order #{order.number}?</DialogTitle>
           <DialogDescription>
@@ -1246,7 +1246,7 @@ function RefundDialog({
       open
       onOpenChange={(open) => !open && !refund.isPending && onClose()}
     >
-      <DialogContent className="text-left sm:max-w-md">
+      <DialogContent className="text-left sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>Refund order #{order.number}</DialogTitle>
           <DialogDescription>
@@ -1728,7 +1728,7 @@ function DishPicker({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 text-left sm:max-w-lg">
+      <DialogContent className="flex! max-h-[calc(100dvh-2rem)] flex-col gap-0! overflow-hidden p-0! text-left sm:max-w-lg!">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>{dish ? dish.name : "Add a dish"}</DialogTitle>
           <DialogDescription>
@@ -1871,7 +1871,7 @@ function DishPicker({
         )}
 
         {dish && (
-          <DialogFooter className="m-0 flex-row items-center justify-between rounded-none border-t border-border px-5 py-3.5">
+          <DialogFooter className="m-0! flex-row! items-center justify-between! rounded-none border-t border-border px-5 py-3.5">
             <div className="flex items-center rounded-xl border border-border">
               <button
                 type="button"

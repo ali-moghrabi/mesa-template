@@ -734,7 +734,7 @@ export function ReasonDialog({
       open={target !== null}
       onOpenChange={(o) => !o && !move.isPending && onClose()}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>
             {declining ? "Decline this request?" : "Cancel this booking?"}

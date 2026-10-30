@@ -1017,7 +1017,7 @@ function TimezoneDialog({
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 text-left sm:max-w-md">
+      <DialogContent className="flex! max-h-[calc(100dvh-2rem)] flex-col gap-0! overflow-hidden p-0! text-left sm:max-w-md!">
         <DialogHeader className="shrink-0 border-b border-border p-5 pr-12 pb-4 text-left">
           <DialogTitle className="text-lg">Time zone</DialogTitle>
           <DialogDescription>

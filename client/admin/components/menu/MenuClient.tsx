@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * The menu's interactive pieces (search bar, photo with fallback) and the small labels shared by
- * the list and the dish form. One client file: server components can render all of them.
- */
-
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -685,7 +680,7 @@ function ConfirmDelete({
       open={open}
       onOpenChange={(next) => !pending && onOpenChange(next)}
     >
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md!">
         <AlertDialogHeader>
           <span className="mx-auto mb-1 grid size-11 place-items-center rounded-2xl bg-destructive/10 text-destructive sm:mx-0">
             <Trash2 className="size-5" />

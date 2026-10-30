@@ -70,8 +70,8 @@ const SignUpForm: React.FC<Props> = ({
   });
 
   return (
-    <DialogContent className="overflow-hidden rounded-2xl border-border/60 bg-background p-0 shadow-2xl sm:max-w-md">
-      <DialogHeader className="items-center px-6 pt-8 pb-5 text-center gap-0">
+    <DialogContent className="overflow-hidden rounded-2xl! border-border/60 bg-background! p-0! shadow-2xl sm:max-w-md!">
+      <DialogHeader className="items-center px-6 pt-8 pb-5 text-center gap-0!">
         <div className="flex items-center justify-center">
           <Image
             src={`/${darkLogo}`}
@@ -91,7 +91,7 @@ const SignUpForm: React.FC<Props> = ({
         </div>
 
         <div className="mt-4 flex flex-col items-center justify-center gap-1">
-          <DialogTitle className="text-2xl font-semibold tracking-tight">
+          <DialogTitle className="text-2xl! font-semibold tracking-tight">
             Create your account
           </DialogTitle>
 

@@ -1177,7 +1177,7 @@ function PhotoDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
       <DialogContent
-        className="flex max-h-[calc(100dvh-1.5rem)] flex-col gap-0 overflow-hidden p-0 text-left sm:max-w-4xl md:flex-row"
+        className="flex! max-h-[calc(100dvh-1.5rem)] flex-col gap-0! overflow-hidden p-0! text-left sm:max-w-4xl! md:flex-row"
         showCloseButton={false}
       >
         <DialogTitle className="sr-only">Edit photo</DialogTitle>
@@ -1699,7 +1699,7 @@ function SelectionBar({
         open={confirming}
         onOpenChange={(open) => !remove.isPending && setConfirming(open)}
       >
-        <AlertDialogContent className="text-left sm:max-w-md">
+        <AlertDialogContent className="text-left sm:max-w-md!">
           <AlertDialogHeader>
             <span className="mx-auto mb-1 grid size-11 place-items-center rounded-2xl bg-destructive/10 text-destructive sm:mx-0">
               <Trash2 className="size-5" />

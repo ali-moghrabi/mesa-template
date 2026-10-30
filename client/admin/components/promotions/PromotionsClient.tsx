@@ -1344,7 +1344,7 @@ export function PromotionActions({ promotion }: { promotion: AdminPromotion }) {
         open={confirming}
         onOpenChange={(open) => !remove.isPending && setConfirming(open)}
       >
-        <AlertDialogContent className="text-left sm:max-w-md">
+        <AlertDialogContent className="text-left sm:max-w-md!">
           <AlertDialogHeader>
             <span className="mx-auto mb-1 grid size-11 place-items-center rounded-2xl bg-destructive/10 text-destructive sm:mx-0">
               <Trash2 className="size-5" />

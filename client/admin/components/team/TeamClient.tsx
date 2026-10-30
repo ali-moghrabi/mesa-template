@@ -572,7 +572,7 @@ function ConfirmChange({
       open={change !== null}
       onOpenChange={(open) => !open && !busy && onCancel()}
     >
-      <AlertDialogContent className="text-left sm:max-w-md">
+      <AlertDialogContent className="text-left sm:max-w-md!">
         <AlertDialogHeader>
           <div className="mx-auto mb-1 flex items-center gap-3 sm:mx-0">
             <MemberAvatar
@@ -739,7 +739,7 @@ function AddMemberDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !add.isPending && onClose()}>
-      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 text-left sm:max-w-lg">
+      <DialogContent className="flex! max-h-[calc(100dvh-2rem)] flex-col gap-0! overflow-hidden p-0! text-left sm:max-w-lg!">
         <DialogHeader className="shrink-0 border-b border-border p-5 pb-4 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2.5 text-lg">
             <span className="grid size-9 place-items-center rounded-xl bg-primary/12 text-primary">
@@ -920,7 +920,7 @@ function AddMemberDialog({
           </div>
         )}
 
-        <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none border-t border-border bg-muted/40 p-4">
+        <DialogFooter className="mx-0 mb-0 shrink-0 rounded-none border-t border-border bg-muted/40! p-4">
           <Button variant="outline" onClick={onClose} disabled={add.isPending}>
             Cancel
           </Button>

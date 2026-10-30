@@ -112,7 +112,7 @@ function ComposerDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden p-0 text-left sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] gap-0! overflow-hidden p-0! text-left sm:max-w-lg!">
         <DialogHeader className="border-b border-border px-5 py-4 text-left">
           <DialogTitle className="flex items-center gap-2.5">
             <span

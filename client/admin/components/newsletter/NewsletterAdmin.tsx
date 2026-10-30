@@ -1,13 +1,5 @@
 "use client";
 
-/**
- * /admin/newsletter (managers and the owner):
- *   Overview     how the list grows, where people sign up, why they leave, the latest newsletters
- *   Newsletters  write, preview, test, send or schedule (Campaigns.tsx)
- *   Subscribers  search, add, resend the confirmation, unsubscribe, erase, export to CSV
- *   Automations  the welcome email and the sale alert (Automations.tsx)
- */
-
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   keepPreviousData,
@@ -988,7 +980,7 @@ function AddDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !add.isPending && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>Add a subscriber</DialogTitle>
           <DialogDescription>

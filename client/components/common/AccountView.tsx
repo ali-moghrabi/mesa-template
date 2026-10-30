@@ -1080,7 +1080,7 @@ function DevicesSection({ lastSignIn }: { lastSignIn?: string }) {
         open={open}
         onOpenChange={(next) => !signOut.isPending && setOpen(next)}
       >
-        <AlertDialogContent className="text-left sm:max-w-md">
+        <AlertDialogContent className="text-left sm:max-w-md!">
           <AlertDialogHeader>
             <AlertDialogTitle>Sign out of every device?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1257,7 +1257,7 @@ function CloseSection({
       </Button>
 
       <AlertDialog open={open} onOpenChange={close}>
-        <AlertDialogContent className="text-left sm:max-w-md">
+        <AlertDialogContent className="text-left sm:max-w-md!">
           <form
             onSubmit={form.handleSubmit((values) => remove.mutate(values))}
             noValidate
@@ -1822,7 +1822,7 @@ function CodeDialog({
         onClose();
       }}
     >
-      <AlertDialogContent className="text-left sm:max-w-md">
+      <AlertDialogContent className="text-left sm:max-w-md!">
         <form
           noValidate
           className="grid gap-5"

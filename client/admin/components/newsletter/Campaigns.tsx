@@ -1182,7 +1182,7 @@ function DishesField({
       )}
 
       <Dialog open={picking} onOpenChange={setPicking}>
-        <DialogContent className="gap-0 p-0 sm:max-w-lg">
+        <DialogContent className="gap-0! p-0! sm:max-w-lg!">
           <DialogHeader className="border-b border-border p-5">
             <DialogTitle>Featured dishes</DialogTitle>
             <DialogDescription>
@@ -1242,7 +1242,7 @@ function DishesField({
               </p>
             )}
           </ul>
-          <DialogFooter className="border-t border-border p-4">
+          <DialogFooter className="m-0! border-t border-border p-4">
             <button
               type="button"
               onClick={() => setPicking(false)}
@@ -1314,7 +1314,7 @@ function TestDialog({
       open={open}
       onOpenChange={(o) => !o && !test.isPending && onClose()}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>Send a test</DialogTitle>
           <DialogDescription>
@@ -1436,7 +1436,7 @@ function SendDialog({
       open={open}
       onOpenChange={(o) => !o && !send.isPending && onClose()}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md!">
         <DialogHeader>
           <DialogTitle>Send “{campaign.subject}”</DialogTitle>
           <DialogDescription>

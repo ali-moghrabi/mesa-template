@@ -84,6 +84,7 @@ export function Checkout({ info, currency, brandName }: Props) {
     (t) => info[t] !== null,
   );
 
+  // "Pay online": shown once a payment provider (Whish Pay) is connected and the site allows it
   const onlineAvailable = info.payments.online;
   const closed = info.open !== null && !info.open.open;
   const areas = info.delivery?.areas ?? [];
@@ -141,8 +142,10 @@ export function Checkout({ info, currency, brandName }: Props) {
   const attempt = useRef<{ signature: string; key: string } | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [payError, setPayError] = useState<string | null>(null);
+  // Step 2: the filled-in order, shown once more before it's sent
   const [review, setReview] = useState<CheckoutValues | null>(null);
 
+  // Back from the payment page with the browser's back button: the page is restored as it was left
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
       if (event.persisted) setPhase("idle");
@@ -188,6 +191,7 @@ export function Checkout({ info, currency, brandName }: Props) {
     if (result.status === 409) router.refresh();
   };
 
+  /** Step 1: the form is valid, so show the order for a last check */
   const submit = (values: CheckoutValues) => {
     if (phase !== "idle" || blocker) return;
     setPayError(null);
@@ -199,6 +203,7 @@ export function Checkout({ info, currency, brandName }: Props) {
     setReview(values);
   };
 
+  /** Step 2: confirmed, send it */
   const place = async (values: CheckoutValues) => {
     if (phase !== "idle" || blocker) return;
     const online = values.paymentMethod === "online";
@@ -228,6 +233,7 @@ export function Checkout({ info, currency, brandName }: Props) {
           : undefined,
       expectedTotal: bill.total,
     };
+    // The same details resend the same order (a retry can't place it twice)
     const signature = JSON.stringify(input);
     if (attempt.current?.signature !== signature)
       attempt.current = { signature, key: newKey() };
@@ -1345,7 +1351,7 @@ function ConfirmOrder({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 sm:max-w-md sm:p-6">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 sm:max-w-md! sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold tracking-tight">
             Confirm your order

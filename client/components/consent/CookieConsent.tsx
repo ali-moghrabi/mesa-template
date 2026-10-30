@@ -199,7 +199,7 @@ function Preferences({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-lg">
+      <DialogContent className="gap-0! p-0! sm:max-w-lg!">
         {open && (
           <PreferencesBody
             used={used}

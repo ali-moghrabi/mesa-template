@@ -379,7 +379,7 @@ function CancelDialog({
         if (!open && !busy) onClose();
       }}
     >
-      <AlertDialogContent className="text-left sm:max-w-md">
+      <AlertDialogContent className="text-left sm:max-w-md!">
         <AlertDialogHeader>
           <span className="mx-auto mb-1 grid size-11 place-items-center rounded-2xl bg-destructive/10 text-destructive sm:mx-0">
             <CalendarX2 className="size-5" />
