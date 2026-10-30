@@ -11,7 +11,7 @@ import {
 export const ORDER_TYPES = ['delivery', 'pickup'] as const;
 export type OrderType = (typeof ORDER_TYPES)[number];
 
-export const PAYMENT_METHODS = ['card', 'cash'] as const;
+export const PAYMENT_METHODS = ['online', 'cash'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export type DeliveryArea = {
@@ -26,7 +26,7 @@ export type OrderingRules = {
   currency: string;
   timezone: string;
   vat: { rate: number; included: boolean };
-  payments: { card: boolean; cash: boolean };
+  payments: { online: boolean; cash: boolean };
   delivery: null | {
     fee: number;
     freeOver: number | null;

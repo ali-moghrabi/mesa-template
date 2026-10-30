@@ -1,4 +1,9 @@
-import type { OrderStatus, OrderType, OrderView } from "@/lib/checkout";
+import type {
+  OrderStatus,
+  OrderType,
+  OrderView,
+  PaymentMethod,
+} from "@/lib/checkout";
 
 export const ORDERS_PATH = "/admin/orders";
 export const BOARD_KEY = ["admin-orders", "board"] as const;
@@ -16,7 +21,7 @@ export type AdminOrderSummary = {
   itemCount: number;
   total: number;
   currency: string;
-  payment: { method: "card" | "cash"; status: string };
+  payment: { method: PaymentMethod; status: string };
   schedule: { asap: boolean; for?: string; from: string; to: string };
   area?: string;
   hasNotes: boolean;
@@ -32,6 +37,7 @@ export type AdminOrder = Omit<OrderView, "history" | "payment"> & {
   payment: OrderView["payment"] & {
     amountPaid?: number;
     refunded: number;
+    refundable: number;
     refunds: {
       id: string;
       amount: number;

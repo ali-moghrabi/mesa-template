@@ -1,11 +1,5 @@
 "use client";
 
-/**
- * The admin home page: what's happening right now, and (for managers and the owner) how the
- * restaurant is doing. Every block follows the person's permissions (the API leaves out what
- * they can't see) and the features the restaurant uses. Refreshes itself every minute.
- */
-
 import Link from "next/link";
 import {
   useEffect,
@@ -953,8 +947,8 @@ function SalesCard({
             title="How they pay"
             rows={sales.payments.map((p) => ({
               key: p.method,
-              label: p.method === "card" ? "Card" : "Cash",
-              icon: p.method === "card" ? CreditCard : Banknote,
+              label: p.method === "online" ? "Online" : "Cash",
+              icon: p.method === "online" ? CreditCard : Banknote,
               orders: p.orders,
               revenue: money(p.revenue),
             }))}

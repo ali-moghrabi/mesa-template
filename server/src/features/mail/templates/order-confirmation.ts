@@ -51,8 +51,8 @@ export function orderConfirmationEmail(
     ? `${delivery ? 'Arriving' : 'Ready'} around ${time(order.schedule.from)}–${time(order.schedule.to)}`
     : `${delivery ? 'Delivered' : 'Ready for pickup'} ${time(order.schedule.from, true)}`;
   const paid =
-    order.payment.method === 'card'
-      ? `Paid by card${order.payment.cardLast4 ? ` (${(order.payment.cardBrand ?? 'card').toUpperCase()} •••• ${order.payment.cardLast4})` : ''}`
+    order.payment.method === 'online'
+      ? 'Paid online'
       : delivery
         ? `Cash on delivery${order.payment.cashChangeFor ? `, change for ${money(order.payment.cashChangeFor)}` : ''}`
         : 'Pay when you pick it up';

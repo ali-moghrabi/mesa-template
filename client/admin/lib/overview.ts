@@ -136,7 +136,7 @@ export type Sales = {
   }[];
   topDishes: { name: string; quantity: number; revenue: number }[];
   channels: { type: OrderType; orders: number; revenue: number }[];
-  payments: { method: "card" | "cash"; orders: number; revenue: number }[];
+  payments: { method: "online" | "cash"; orders: number; revenue: number }[];
   heatmap: { day: number; hour: number; orders: number }[];
 };
 

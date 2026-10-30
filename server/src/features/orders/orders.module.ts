@@ -15,9 +15,9 @@ import { PromotionsModule } from 'src/features/promotions/promotions.module';
 import { OrderingConfig } from './ordering.config';
 import { OrdersAdminController } from './orders-admin.controller';
 import { OrdersAdminService } from './orders-admin.service';
-import { OrdersController, TapWebhookController } from './orders.controller';
+import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { TapService } from './tap.service';
+import { NoPaymentGateway, PAYMENT_GATEWAY } from './payment-gateway';
 
 @Module({
   imports: [
@@ -32,8 +32,13 @@ import { TapService } from './tap.service';
     SettingsModule,
     PromotionsModule,
   ],
-  controllers: [OrdersController, TapWebhookController, OrdersAdminController],
-  providers: [OrdersService, OrdersAdminService, OrderingConfig, TapService],
+  controllers: [OrdersController, OrdersAdminController],
+  providers: [
+    OrdersService,
+    OrdersAdminService,
+    OrderingConfig,
+    { provide: PAYMENT_GATEWAY, useClass: NoPaymentGateway },
+  ],
   exports: [OrdersService, OrderingConfig],
 })
 export class OrdersModule {}

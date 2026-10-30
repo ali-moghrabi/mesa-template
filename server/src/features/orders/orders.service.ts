@@ -2,6 +2,7 @@ import {
   BadGatewayException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -27,6 +28,7 @@ import {
   zonedToDate,
   type OrderingRules,
   type OrderType,
+  type PaymentMethod,
   type Quote,
   type SlotDay,
 } from 'lib/ordering';
@@ -38,6 +40,7 @@ import {
   type OrderAddress,
   type OrderDocument,
   type OrderStatus,
+  shownMethod,
 } from 'src/schemas/order.schema';
 import { User, type UserDocument } from 'src/schemas/user.schema';
 import { CartService, type CartView } from 'src/features/cart/cart.service';
@@ -47,14 +50,10 @@ import { SettingsService } from 'src/features/settings/settings.service';
 import type { PlaceOrderDto } from './dto/order.dto';
 import { OrderingConfig } from './ordering.config';
 import {
-  CAPTURED,
-  IN_PROGRESS,
-  TapError,
-  TapService,
-  cardOf,
-  failureMessage,
-  type TapCharge,
-} from './tap.service';
+  PAYMENT_GATEWAY,
+  type GatewayPayment,
+  type PaymentGateway,
+} from './payment-gateway';
 
 export type CheckoutInfo = {
   cart: CartView;
@@ -75,11 +74,7 @@ export type CheckoutInfo = {
     instructions: string;
     slots: SlotDay[];
   };
-  payments: {
-    card: boolean;
-    cash: boolean;
-    cardForm: { publicKey: string; merchantId?: string } | null;
-  };
+  payments: { online: boolean; cash: boolean };
   tips: number[];
   open: OpenStatus | null;
   scheduling: boolean;
@@ -96,10 +91,8 @@ export type OrderView = {
   currency: string;
   createdAt: string;
   payment: {
-    method: 'card' | 'cash';
+    method: PaymentMethod;
     status: string;
-    cardBrand?: string;
-    cardLast4?: string;
     cashChangeFor?: number;
     lastError?: string;
     paidAt?: string;
@@ -183,7 +176,7 @@ export class OrdersService {
     private readonly cart: CartService,
     private readonly settings: SettingsService,
     private readonly ordering: OrderingConfig,
-    private readonly tap: TapService,
+    @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly mail: MailService,
     private readonly config: ConfigService<Env, true>,
   ) {}
@@ -262,9 +255,8 @@ export class OrdersService {
         slots: slots(rules.pickup.etaMinutes[0]),
       },
       payments: {
-        card: rules.payments.card && this.tap.enabled,
+        online: rules.payments.online && this.gateway.enabled,
         cash: rules.payments.cash,
-        cardForm: rules.payments.card ? this.tap.cardForm() : null,
       },
       tips: rules.tips,
       open: hours ? getOpenStatus(hours) : null,
@@ -285,7 +277,7 @@ export class OrdersService {
     const existing = await this.orderModel
       .findOne({ userId: owner, idempotencyKey: dto.idempotencyKey })
       .lean<OrderRow>();
-    if (existing) return this.resume(existing, dto.cardToken);
+    if (existing) return this.resume(existing);
 
     const rules = this.enabledRules();
     const secret = this.signingSecret();
@@ -299,10 +291,10 @@ export class OrdersService {
         'Choose another way to get your order',
       );
     if (
-      dto.paymentMethod === 'card' &&
-      !(rules.payments.card && this.tap.enabled)
+      dto.paymentMethod === 'online' &&
+      !(rules.payments.online && this.gateway.enabled)
     )
-      throw formError({ paymentMethod: 'Card payments are off right now' });
+      throw formError({ paymentMethod: 'Paying online is off right now' });
     if (dto.paymentMethod === 'cash' && !rules.payments.cash)
       throw formError({ paymentMethod: 'Cash payments are off right now' });
 
@@ -422,18 +414,18 @@ export class OrdersService {
       }>();
     if (!user) throw new NotFoundException('Your account was not found');
 
-    // Only one unpaid card order at a time: an earlier one is abandoned now
+    // Only one unpaid online order at a time: an earlier one is abandoned now
     await this.abandonUnpaid(owner);
 
     const id = new Types.ObjectId();
-    const cardOrder = dto.paymentMethod === 'card';
+    const online = dto.paymentMethod === 'online';
     const draft: Omit<Order, 'createdAt' | 'updatedAt' | 'checksum'> & {
       _id: Types.ObjectId;
     } = {
       _id: id,
       number: await this.nextNumber(),
       userId: owner,
-      status: cardOrder ? 'awaiting_payment' : 'placed',
+      status: online ? 'awaiting_payment' : 'placed',
       type: dto.type,
       payment: {
         method: dto.paymentMethod,
@@ -471,11 +463,11 @@ export class OrdersService {
       cartLineIds: cart.lines.map((l) => new Types.ObjectId(l.id)),
       idempotencyKey: dto.idempotencyKey,
       history: [
-        { status: cardOrder ? 'awaiting_payment' : 'placed', at: new Date() },
+        { status: online ? 'awaiting_payment' : 'placed', at: new Date() },
       ],
-      ...(!cardOrder && { placedAt: new Date() }),
-      // A card checkout that's never paid cleans itself up (kept while it can still be paid)
-      ...(cardOrder && { expiresAt: new Date(now + UNPAID_KEEP_MS) }),
+      ...(!online && { placedAt: new Date() }),
+      // An online checkout that's never paid cleans itself up (kept while it can still be paid)
+      ...(online && { expiresAt: new Date(now + UNPAID_KEEP_MS) }),
     };
     const checksum = sign(secret, draft);
 
@@ -499,112 +491,76 @@ export class OrdersService {
         { $set: { phone: dto.phone } },
       );
 
-    if (!cardOrder) {
+    if (!online) {
       await this.afterPlaced(order);
       return { order: this.view(order, rules) };
     }
 
-    // Card: a Tap charge for exactly this order's total, paid on Tap's secure page
-    return this.startCharge(order, rules, dto.cardToken);
+    // Online: a payment for exactly this order's total, on the provider's secure page
+    return this.startPayment(order, rules);
   }
 
   /**
-   * An order already created for this submit (a retry, or a second card after a decline): its
-   * payment page again, or a new attempt when the last one failed or a new card was typed
+   * An order already created for this submit (a retry): its payment page again, or a new
+   * attempt when the last one failed or expired
    */
-  private async resume(
-    order: OrderRow,
-    cardToken?: string,
-  ): Promise<PlacedOrder> {
+  private async resume(order: OrderRow): Promise<PlacedOrder> {
     const rules = this.ordering.rules();
-    if (order.status !== 'awaiting_payment' || order.payment.method !== 'card')
+    if (order.status !== 'awaiting_payment' || order.payment.method === 'cash')
       return { order: this.view(order, rules) };
 
     if (order.payment.chargeId) {
-      const charge = await this.tap
-        .retrieveCharge(order.payment.chargeId)
+      const payment = await this.gateway
+        .check(order.payment.chargeId)
         .catch(() => null);
-      if (!charge)
+      if (!payment)
         throw new BadGatewayException(
-          "Card payments aren't answering right now. Try again in a moment, or pay cash.",
+          "Online payments aren't answering right now. Try again in a moment, or pay cash.",
         );
-      if (charge.status === CAPTURED) {
+      if (payment.status === 'paid') {
         const full = await this.withChecksum(order._id);
-        if (full) await this.applyCharge(full, charge);
+        if (full) await this.applyPayment(full, payment);
         return { order: await this.fresh(order, rules) };
       }
-      // Same card, still in progress: the same page. A new card always gets a new attempt.
-      if (
-        !cardToken &&
-        IN_PROGRESS.has(charge.status) &&
-        charge.transaction?.url
-      )
-        return {
-          order: this.view(order, rules),
-          paymentUrl: charge.transaction.url,
-        };
+      // Still in progress: the same page
+      if (payment.status === 'pending' && payment.url)
+        return { order: this.view(order, rules), paymentUrl: payment.url };
     }
-    // The last attempt failed or expired, or a new card was typed: a new charge for the same order
-    return this.startCharge(order, rules, cardToken);
+    // The last attempt failed or expired: a new payment for the same order
+    return this.startPayment(order, rules);
   }
 
-  /**
-   * A new Tap charge for this order (attempt n + 1).
-   *   no card token → paymentUrl: Tap's payment page
-   *   card token    → paid or declined at once, or paymentUrl: the bank's 3-D Secure check
-   */
-  private async startCharge(
+  /** A new online payment for this order (attempt n + 1): paymentUrl is the provider's page */
+  private async startPayment(
     order: OrderRow,
     rules: OrderingRules,
-    cardToken?: string,
   ): Promise<PlacedOrder> {
     const attempt = (order.payment.attempts ?? 0) + 1;
     const id = String(order._id);
-    let charge: TapCharge;
+    let payment: GatewayPayment;
     try {
-      charge = await this.tap.createCharge({
+      payment = await this.gateway.start({
+        orderId: id,
+        orderNumber: order.number,
         amount: toGatewayAmount(
           order.amounts.total,
           order.currency,
           PRICE_UNIT,
         ),
         currency: order.currency,
-        orderId: id,
-        orderNumber: order.number,
-        idempotencyKey: `order-${id}-${attempt}`,
         description: `Order #${order.number}`,
-        customer: { name: order.customer.name, email: order.customer.email },
-        // The card field's 3-D Secure check runs in a window over the checkout and ends on
-        // /3ds-return, which hands back to the checkout. Tap's own page ends on the receipt.
-        redirectUrl: cardToken
-          ? `${this.webUrl()}/3ds-return?order=${id}`
-          : `${this.webUrl()}/payment/complete?order=${id}`,
-        cardToken,
+        customer: {
+          name: order.customer.name,
+          email: order.customer.email,
+          phone: order.customer.phone,
+        },
+        returnUrl: `${this.webUrl()}/payment/complete?order=${id}`,
+        idempotencyKey: `order-${id}-${attempt}`,
       });
     } catch (error) {
       this.logger.error(
-        `Tap refused order #${order.number}: ${(error as Error).message}`,
+        `Online payment for order #${order.number} didn't start: ${(error as Error).message}`,
       );
-      // A refused card (Tap answered 4xx): the guest can try another card on the same order
-      if (
-        cardToken &&
-        error instanceof TapError &&
-        error.status !== undefined &&
-        error.status < 500
-      ) {
-        await this.orderModel.updateOne(
-          { _id: order._id, status: 'awaiting_payment' },
-          {
-            $set: {
-              'payment.status': 'failed',
-              'payment.attempts': attempt,
-              'payment.lastError':
-                "This card couldn't be charged. Check the details or try another card.",
-            },
-          },
-        );
-        return { order: await this.fresh(order, rules) };
-      }
       await this.orderModel.updateOne(
         { _id: order._id, status: 'awaiting_payment' },
         {
@@ -613,14 +569,14 @@ export class OrdersService {
             history: {
               status: 'cancelled',
               at: new Date(),
-              note: 'Card payment could not start',
+              note: 'Online payment could not start',
             },
           },
         },
       );
       if (error instanceof ServiceUnavailableException) throw error;
       throw new BadGatewayException(
-        "Card payments aren't answering right now. Try again in a moment, or pay cash.",
+        "Online payments aren't answering right now. Try again in a moment, or pay cash.",
       );
     }
 
@@ -628,7 +584,7 @@ export class OrdersService {
       { _id: order._id },
       {
         $set: {
-          'payment.chargeId': charge.id,
+          'payment.chargeId': payment.id,
           'payment.attempts': attempt,
           'payment.status': 'unpaid',
         },
@@ -636,24 +592,23 @@ export class OrdersService {
       },
     );
 
-    // Still to be paid: Tap's page, or the bank's 3-D Secure check
-    if (IN_PROGRESS.has(charge.status)) {
-      const url = charge.transaction?.url;
-      if (url) {
-        order.payment.chargeId = charge.id;
+    // Still to be paid: the provider's page
+    if (payment.status === 'pending') {
+      if (payment.url) {
+        order.payment.chargeId = payment.id;
         order.payment.attempts = attempt;
         order.payment.status = 'unpaid';
         delete order.payment.lastError;
-        return { order: this.view(order, rules), paymentUrl: url };
+        return { order: this.view(order, rules), paymentUrl: payment.url };
       }
       this.logger.error(
-        `Order #${order.number}: Tap charge ${charge.id} is ${charge.status} with no page to send the guest to`,
+        `Order #${order.number}: payment ${payment.id} is pending with no page to send the guest to`,
       );
     }
 
-    // Already decided (a card without 3-D Secure): paid, or declined with Tap's reason
+    // Already decided: paid, or failed with the provider's reason
     const full = await this.withChecksum(order._id);
-    if (full) await this.applyCharge(full, charge);
+    if (full) await this.applyPayment(full, payment);
     return { order: await this.fresh(order, rules) };
   }
 
@@ -666,83 +621,88 @@ export class OrdersService {
     return this.view(row ?? order, rules);
   }
 
-  /* ───────────── card results ───────────── */
+  /* ───────────── online payment results ───────────── */
 
-  /** /payment/complete calls this when Tap sends the guest back (the webhook does the same, later) */
+  /** /payment/complete calls this when the provider sends the guest back (its callback does the same) */
   async confirmPayment(userId: string, orderId: string): Promise<OrderView> {
     const order = await this.own(userId, orderId, true);
     if (
-      order.payment.method === 'card' &&
+      order.payment.method !== 'cash' &&
       order.payment.chargeId &&
       order.status === 'awaiting_payment'
     ) {
-      const charge = await this.tap
-        .retrieveCharge(order.payment.chargeId)
+      const payment = await this.gateway
+        .check(order.payment.chargeId)
         .catch((error: Error) => {
           this.logger.warn(
-            `Order #${order.number}: couldn't read ${order.payment.chargeId} from Tap: ${error.message}`,
+            `Order #${order.number}: couldn't read payment ${order.payment.chargeId}: ${error.message}`,
           );
           return null;
         });
-      if (charge) await this.applyCharge(order, charge);
+      if (payment) await this.applyPayment(order, payment);
       return this.get(userId, orderId);
     }
     return this.view(order, this.ordering.rules());
   }
 
   /**
-   * From Tap's webhook. Its content is only a hint: the charge is read again from Tap with the
-   * secret key, then matched to its order, so a forged notification can't mark anything paid.
+   * For the provider's callback (its controller comes with the provider). The callback is only a
+   * hint: the payment is read again from the provider, then matched to its order, so a forged
+   * call can't mark anything paid.
    */
-  async handleChargeEvent(chargeId: string): Promise<void> {
-    let charge: TapCharge;
+  async handlePaymentEvent(paymentId: string): Promise<void> {
+    let payment: GatewayPayment;
     try {
-      charge = await this.tap.retrieveCharge(chargeId);
+      payment = await this.gateway.check(paymentId);
     } catch (error) {
       this.logger.warn(
-        `Webhook for ${chargeId}: couldn't read it from Tap: ${(error as Error).message}`,
+        `Payment callback for ${paymentId}: couldn't read it: ${(error as Error).message}`,
       );
       return;
     }
-    const orderId = charge.reference?.transaction ?? charge.metadata?.udf1;
     const order =
-      orderId && isValidObjectId(orderId)
-        ? await this.withChecksum(new Types.ObjectId(orderId))
+      payment.orderId && isValidObjectId(payment.orderId)
+        ? await this.withChecksum(new Types.ObjectId(payment.orderId))
         : await this.orderModel
-            .findOne({ 'payment.chargeId': charge.id })
+            .findOne({ 'payment.chargeId': payment.id })
             .select('+checksum')
             .lean<OrderRow>();
     if (!order) {
-      this.logger.warn(`Webhook for ${charge.id}: no matching order`);
+      this.logger.warn(`Payment callback for ${payment.id}: no matching order`);
       return;
     }
-    await this.applyCharge(order, charge);
+    await this.applyPayment(order, payment);
   }
 
-  /** Tap's record → the order. Safe to run any number of times, from any path. */
-  private async applyCharge(order: OrderRow, charge: TapCharge): Promise<void> {
+  /** The provider's record → the order. Safe to run any number of times, from any path. */
+  private async applyPayment(
+    order: OrderRow,
+    payment: GatewayPayment,
+  ): Promise<void> {
     const expected = toGatewayAmount(
       order.amounts.total,
       order.currency,
       PRICE_UNIT,
     );
     const signed = sign(this.signingSecret(), order);
+    const forThisOrder = payment.orderId
+      ? payment.orderId === String(order._id)
+      : payment.id === order.payment.chargeId;
     const genuine =
-      (charge.reference?.transaction ?? charge.metadata?.udf1) ===
-        String(order._id) &&
-      sameGatewayAmount(charge.amount, expected, order.currency) &&
-      String(charge.currency).toUpperCase() === order.currency.toUpperCase() &&
+      forThisOrder &&
+      sameGatewayAmount(payment.amount, expected, order.currency) &&
+      String(payment.currency).toUpperCase() === order.currency.toUpperCase() &&
       sameHash(signed, order.checksum ?? '');
 
     if (!genuine) {
       this.logger.error(
-        `Order #${order.number}: the payment ${charge.id} doesn't match the order. Not marked as paid.`,
+        `Order #${order.number}: the payment ${payment.id} doesn't match the order. Not marked as paid.`,
       );
       await this.orderModel.updateOne(
         {
           _id: order._id,
           status: 'awaiting_payment',
-          'payment.chargeId': charge.id,
+          'payment.chargeId': payment.id,
         },
         {
           $set: {
@@ -755,9 +715,8 @@ export class OrdersService {
       return;
     }
 
-    if (charge.status === CAPTURED) {
+    if (payment.status === 'paid') {
       if (order.status === 'awaiting_payment') {
-        const card = cardOf(charge);
         const paidAt = new Date();
         const updated = await this.orderModel
           .findOneAndUpdate(
@@ -769,13 +728,11 @@ export class OrdersService {
                 'payment.status': 'paid',
                 'payment.paidAt': paidAt,
                 'payment.amountPaid': order.amounts.total,
-                'payment.chargeId': charge.id,
-                'payment.cardBrand': card.brand,
-                'payment.cardLast4': card.last4,
+                'payment.chargeId': payment.id,
               },
               $unset: { 'payment.lastError': 1, expiresAt: 1 },
               $push: {
-                history: { status: 'placed', at: paidAt, note: 'Paid by card' },
+                history: { status: 'placed', at: paidAt, note: 'Paid online' },
               },
             },
             { returnDocument: 'after' },
@@ -785,61 +742,61 @@ export class OrdersService {
           await this.afterPlaced(updated);
           return;
         }
-        // Another path (the webhook, the return page) got there first
+        // Another path (the callback, the return page) got there first
         order = (await this.withChecksum(order._id)) ?? order;
       }
       const counted =
-        order.payment.chargeId === charge.id &&
+        order.payment.chargeId === payment.id &&
         (order.payment.status === 'paid' ||
           order.payment.status === 'refunded');
       // Money for an order that was abandoned, or a second payment: it goes straight back
-      if (!counted) await this.refundStray(order, charge);
+      if (!counted) await this.refundStray(order, payment);
       return;
     }
 
-    if (IN_PROGRESS.has(charge.status)) return; // the guest is still on Tap's page
+    if (payment.status === 'pending') return; // the guest is still on the provider's page
 
-    // Declined, cancelled, expired…: only the current attempt changes the order
+    // Failed, cancelled, expired…: only the current attempt changes the order
     this.logger.warn(
-      `Order #${order.number}: Tap charge ${charge.id} is ${charge.status}` +
-        (charge.response?.code || charge.response?.message
-          ? ` (${[charge.response?.code, charge.response?.message].filter(Boolean).join(': ')})`
-          : ''),
+      `Order #${order.number}: payment ${payment.id} failed${payment.failure ? ` (${payment.failure})` : ''}`,
     );
     await this.orderModel.updateOne(
       {
         _id: order._id,
         status: 'awaiting_payment',
-        'payment.chargeId': charge.id,
+        'payment.chargeId': payment.id,
       },
       {
         $set: {
           'payment.status': 'failed',
-          'payment.lastError': failureMessage(charge),
+          'payment.lastError':
+            payment.failure ??
+            "The payment didn't go through, and you weren't charged. Try again, or pay cash.",
         },
       },
     );
   }
 
-  /** A card payment that doesn't belong to a live order is refunded automatically, once */
-  private async refundStray(order: OrderRow, charge: TapCharge): Promise<void> {
+  /** A payment that doesn't belong to a live order is refunded automatically, once */
+  private async refundStray(
+    order: OrderRow,
+    payment: GatewayPayment,
+  ): Promise<void> {
+    if (!this.gateway.refund) {
+      this.logger.error(
+        `Order #${order.number}: an extra payment (${payment.id}) arrived. Refund it from the payment provider's dashboard.`,
+      );
+      return;
+    }
     try {
-      const refund = await this.tap.refund({
-        chargeId: charge.id,
-        amount: charge.amount,
-        currency: charge.currency,
-        idempotencyKey: `stray-${charge.id}`,
+      const refund = await this.gateway.refund({
+        paymentId: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        idempotencyKey: `stray-${payment.id}`,
         note: `Order #${order.number}: extra payment, refunded automatically`,
       });
-      if (
-        ['FAILED', 'DECLINED', 'CANCELLED'].includes(
-          String(refund.status).toUpperCase(),
-        )
-      )
-        throw new TapError(
-          refund.response?.message ?? `refund ${refund.status}`,
-        );
-      const note = `An extra card payment (${charge.id}) arrived and was refunded automatically (${refund.id}).`;
+      const note = `An extra online payment (${payment.id}) arrived and was refunded automatically (${refund.id}).`;
       await this.orderModel.updateOne(
         { _id: order._id, 'history.note': { $ne: note } },
         {
@@ -851,7 +808,7 @@ export class OrdersService {
       this.logger.warn(`Order #${order.number}: ${note}`);
     } catch (error) {
       this.logger.error(
-        `Order #${order.number}: the extra payment ${charge.id} couldn't be refunded automatically. Refund it in the Tap dashboard. ${(error as Error).message}`,
+        `Order #${order.number}: the extra payment ${payment.id} couldn't be refunded automatically. Refund it from the payment provider's dashboard. ${(error as Error).message}`,
       );
     }
   }
@@ -864,7 +821,7 @@ export class OrdersService {
       .exec();
   }
 
-  /** The website's address, where Tap sends the guest back */
+  /** The website's address, where the payment provider sends the guest back */
   private webUrl(): string {
     const read = (key: 'WEB_URL' | 'CLIENT_ORIGIN') => {
       const value: unknown = this.config.get(key, { infer: true });
@@ -877,7 +834,7 @@ export class OrdersService {
     return url.replace(/\/+$/, '');
   }
 
-  /** Placed (cash, or card paid): the ordered dishes leave the cart, and the confirmation email goes once */
+  /** Placed (cash, or paid online): the ordered dishes leave the cart, and the confirmation email goes once */
   private async afterPlaced(order: OrderRow): Promise<void> {
     await this.cartModel.updateOne(
       { userId: order.userId },
@@ -913,7 +870,7 @@ export class OrdersService {
   }
 
   /**
-   * The person's orders for /account/orders. Unpaid card attempts are left out.
+   * The person's orders for /account/orders. Unpaid online attempts are left out.
    *   active  everything still on its way (placed → out for delivery), newest first
    *   past    completed and cancelled, PAST_PAGE at a time; `before` continues from nextBefore
    */
@@ -1052,8 +1009,8 @@ export class OrdersService {
   }
 
   /**
-   * Earlier unpaid card orders of this person are cancelled. Tap can't cancel a payment page that's
-   * still open: if the guest pays one later anyway, applyCharge refunds it automatically.
+   * Earlier unpaid online orders of this person are cancelled. A payment page that's still open
+   * can't be cancelled: if the guest pays one later anyway, applyPayment refunds it.
    */
   private async abandonUnpaid(owner: Types.ObjectId): Promise<void> {
     const stale = await this.orderModel
@@ -1064,13 +1021,13 @@ export class OrdersService {
       .lean<OrderRow[]>();
     for (const order of stale) {
       if (order.payment.chargeId) {
-        const charge = await this.tap
-          .retrieveCharge(order.payment.chargeId)
+        const payment = await this.gateway
+          .check(order.payment.chargeId)
           .catch(() => null);
-        if (charge?.status === CAPTURED) {
-          // Paid after all (the webhook hasn't arrived yet): keep it
+        if (payment?.status === 'paid') {
+          // Paid after all (the callback hasn't arrived yet): keep it
           const full = await this.withChecksum(order._id);
-          if (full) await this.applyCharge(full, charge);
+          if (full) await this.applyPayment(full, payment);
           continue;
         }
       }
@@ -1112,10 +1069,8 @@ export class OrdersService {
       currency: order.currency,
       createdAt: new Date(order.createdAt ?? Date.now()).toISOString(),
       payment: {
-        method: order.payment.method,
+        method: shownMethod(order.payment.method),
         status: order.payment.status,
-        cardBrand: order.payment.cardBrand,
-        cardLast4: order.payment.cardLast4,
         cashChangeFor:
           order.payment.cashChangeFor === undefined
             ? undefined
@@ -1187,9 +1142,9 @@ type Signable = Pick<
 
 /**
  * HMAC-SHA256 of what the guest pays and for what: order id, number, owner, type, currency,
- * total, payment method and every line. Stored on the order; a Tap payment is only accepted while it still
- * matches, and the charge must name this order with the same amount and currency, so an amount edited in
- * the database (or a swapped charge) is caught.
+ * total, payment method and every line. Stored on the order; an online payment is only accepted while it
+ * still matches, and the payment must be for this order with the same amount and currency, so an amount
+ * edited in the database (or a swapped payment) is caught.
  */
 export function sign(secret: string, order: Signable): string {
   const facts = [

@@ -617,10 +617,10 @@ export function PaymentBadge({
     >
       {refunded
         ? "Refunded"
-        : method === "card"
+        : method === "online"
           ? paid
-            ? "Paid · card"
-            : "Card pending"
+            ? "Paid · online"
+            : "Online pending"
           : paid
             ? "Paid · cash"
             : "Cash due"}

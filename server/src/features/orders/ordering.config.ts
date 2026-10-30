@@ -130,18 +130,18 @@ function reservationRules(config: Json, timezone: string): ReservationRules {
   };
 }
 
-export const PAYMENT_METHOD_IDS = ['cod', 'card'] as const;
+export const PAYMENT_METHOD_IDS = ['cod', 'whish'] as const;
 export type PaymentMethodId = (typeof PAYMENT_METHOD_IDS)[number];
 
 function paymentMethods(payments: Json): OrderingRules['payments'] {
   const methods = payments.methods;
-  if (!Array.isArray(methods)) return { card: true, cash: true };
+  if (!Array.isArray(methods)) return { online: true, cash: true };
   const ids = new Set(
     methods
       .filter((m): m is string => typeof m === 'string')
       .map((m) => m.trim().toLowerCase()),
   );
-  return { card: ids.has('card'), cash: ids.has('cod') };
+  return { online: ids.has('whish'), cash: ids.has('cod') };
 }
 
 function addressLine(value: unknown): string {

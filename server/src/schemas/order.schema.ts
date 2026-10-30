@@ -21,6 +21,11 @@ export const ORDER_STATUSES = [
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+export const STORED_PAYMENT_METHODS = [...PAYMENT_METHODS, 'card'] as const;
+export type StoredPaymentMethod = (typeof STORED_PAYMENT_METHODS)[number];
+export const shownMethod = (method: StoredPaymentMethod): PaymentMethod =>
+  method === 'card' ? 'online' : method;
+
 export const PAYMENT_STATUSES = [
   'unpaid',
   'pending',
@@ -87,8 +92,8 @@ const OrderAmountsSchema = SchemaFactory.createForClass(OrderAmounts);
 
 @Schema({ _id: false })
 export class OrderPayment {
-  @Prop({ type: String, enum: PAYMENT_METHODS, required: true })
-  method!: PaymentMethod;
+  @Prop({ type: String, enum: STORED_PAYMENT_METHODS, required: true })
+  method!: StoredPaymentMethod;
 
   @Prop({ type: String, enum: PAYMENT_STATUSES, default: 'unpaid' })
   status!: PaymentStatus;
@@ -101,12 +106,6 @@ export class OrderPayment {
 
   @Prop({ type: Date })
   paidAt?: Date;
-
-  @Prop({ type: String })
-  cardBrand?: string;
-
-  @Prop({ type: String })
-  cardLast4?: string;
 
   @Prop({ type: Number })
   cashChangeFor?: number;

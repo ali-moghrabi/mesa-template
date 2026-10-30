@@ -47,7 +47,6 @@ export const onboardingSchema = z.object({
   }),
   contact: z.object({
     mapsLink: url,
-    /** "33.8962, 35.4823" from Google Maps (the web form requires it) */
     location: optionalText(120),
     street: optionalText(160),
     area: optionalText(80),
@@ -81,7 +80,7 @@ export const onboardingSchema = z.object({
     deliveryAreas: optionalText(600),
     pickup: z.boolean(),
     whatsappOrdering: z.boolean(),
-    payments: z.array(z.enum(['cash', 'card', 'whish'])).max(3),
+    payments: z.array(z.enum(['cash', 'whish'])).max(2),
     currency: z.enum(['USD', 'LBP', 'EUR', 'AED', 'SAR']),
   }),
   extras: z.object({

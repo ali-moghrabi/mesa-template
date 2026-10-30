@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -15,7 +16,12 @@ import { PRICE_UNIT } from 'lib/constants/menuConstants';
 import { mediaUrl } from 'lib/media-url';
 import { fromMinor, toMinor } from 'lib/money';
 import { addDays } from 'lib/opening-hours';
-import { toGatewayAmount, zonedToDate, type OrderType } from 'lib/ordering';
+import {
+  toGatewayAmount,
+  zonedToDate,
+  type OrderType,
+  type PaymentMethod,
+} from 'lib/ordering';
 import type { Env } from 'src/config/env';
 import { MenuItem, type MenuItemDocument } from 'src/schemas/item.schema';
 import {
@@ -23,6 +29,7 @@ import {
   type OrderDocument,
   type OrderLine,
   type OrderStatus,
+  shownMethod,
 } from 'src/schemas/order.schema';
 import { PromotionsService } from 'src/features/promotions/promotions.service';
 import type {
@@ -40,7 +47,7 @@ import {
   type OrderRow,
   type OrderView,
 } from './orders.service';
-import { TapService } from './tap.service';
+import { PAYMENT_GATEWAY, type PaymentGateway } from './payment-gateway';
 
 export type AdminOrderSummary = {
   id: string;
@@ -53,7 +60,7 @@ export type AdminOrderSummary = {
   itemCount: number;
   total: number;
   currency: string;
-  payment: { method: 'card' | 'cash'; status: string };
+  payment: { method: PaymentMethod; status: string };
   schedule: { asap: boolean; for?: string; from: string; to: string };
   area?: string;
   hasNotes: boolean;
@@ -69,6 +76,7 @@ export type AdminOrder = Omit<OrderView, 'history' | 'payment'> & {
   payment: OrderView['payment'] & {
     amountPaid?: number;
     refunded: number;
+    refundable: number;
     refunds: {
       id: string;
       amount: number;
@@ -180,7 +188,7 @@ export class OrdersAdminService {
     private readonly orders: OrdersService,
     private readonly ordering: OrderingConfig,
     private readonly promotions: PromotionsService,
-    private readonly tap: TapService,
+    @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -328,7 +336,7 @@ export class OrdersAdminService {
         });
       if (refundable > 0 && !canEdit)
         throw new ForbiddenException(
-          'This order was paid by card. Only the owner can cancel it, because it needs a refund.',
+          'This order was paid online. Only the owner can cancel it, because it needs a refund.',
         );
       set.cancelReason = dto.reason.trim();
     }
@@ -492,7 +500,7 @@ export class OrdersAdminService {
     const refundable = this.refundable(order);
     if (refundable <= 0)
       throw new ConflictException(
-        'Nothing on this order can be refunded to a card.',
+        'Nothing on this order can be refunded online.',
       );
     if (amount > refundable)
       throw new BadRequestException({
@@ -503,8 +511,14 @@ export class OrdersAdminService {
     return this.refundMinor(actor, order, amount, dto.reason);
   }
 
+  /** What can still go back to the guest through the payment provider (0 for cash, or without refunds) */
   private refundable(order: OrderRow): number {
-    if (order.payment.method !== 'card' || !order.payment.chargeId) return 0;
+    if (
+      order.payment.method === 'cash' ||
+      !order.payment.chargeId ||
+      !this.gateway.refund
+    )
+      return 0;
     if (order.payment.status !== 'paid' && order.payment.status !== 'refunded')
       return 0;
     return Math.max(
@@ -523,29 +537,22 @@ export class OrdersAdminService {
     const before = order.payment.refunded ?? 0;
     let refundId: string;
     try {
-      const refund = await this.tap.refund({
-        chargeId: order.payment.chargeId!,
+      if (!this.gateway.refund)
+        throw new Error("the payment provider doesn't take refunds here");
+      const refund = await this.gateway.refund({
+        paymentId: order.payment.chargeId!,
         amount: toGatewayAmount(amount, order.currency, PRICE_UNIT),
         currency: order.currency,
         idempotencyKey: `refund-${String(order._id)}-${before}-${amount}`,
         note: reason,
       });
-      if (
-        ['FAILED', 'DECLINED', 'CANCELLED'].includes(
-          String(refund.status).toUpperCase(),
-        )
-      )
-        throw new Error(
-          refund.response?.message ??
-            `the refund was ${String(refund.status).toLowerCase()}`,
-        );
       refundId = refund.id;
     } catch (error) {
       this.logger.error(
         `Refund on order #${order.number} failed: ${(error as Error).message}`,
       );
       throw new ServiceUnavailableException(
-        `Tap didn't accept the refund: ${(error as Error).message}`,
+        `The payment provider didn't accept the refund: ${(error as Error).message}`,
       );
     }
 
@@ -575,7 +582,7 @@ export class OrdersAdminService {
               status: 'refunded',
               at: now,
               by: actor.name,
-              note: `${fmt(amount)} back to the card. ${reason}`,
+              note: `${fmt(amount)} refunded. ${reason}`,
             },
           },
         },
@@ -685,7 +692,7 @@ export class OrdersAdminService {
         : 0;
     const refunded = order.payment.refunded ?? 0;
     const balance =
-      order.payment.method === 'card' && paid
+      order.payment.method !== 'cash' && paid
         ? order.amounts.total - (paid - refunded)
         : 0;
 
@@ -700,6 +707,7 @@ export class OrdersAdminService {
         ...view.payment,
         amountPaid: paid ? n(paid) : undefined,
         refunded: n(refunded),
+        refundable: n(this.refundable(order)),
         refunds: (order.payment.refunds ?? []).map((r) => ({
           ...r,
           amount: n(r.amount),
@@ -735,7 +743,10 @@ function summary(order: OrderRow): AdminOrderSummary {
     itemCount: order.lines.reduce((sum, l) => sum + l.quantity, 0),
     total: fromMinor(order.amounts.total) ?? 0,
     currency: order.currency,
-    payment: { method: order.payment.method, status: order.payment.status },
+    payment: {
+      method: shownMethod(order.payment.method),
+      status: order.payment.status,
+    },
     schedule: {
       asap: order.schedule.asap,
       for: order.schedule.for,

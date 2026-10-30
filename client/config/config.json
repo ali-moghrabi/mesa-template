@@ -638,7 +638,7 @@
   },
   "ordering": {
     "payments": {
-      "methods": ["cod", "card", "whish"]
+      "methods": ["cod", "whish"]
     },
     "delivery": {
       "fee": 3,
@@ -715,7 +715,7 @@
         "- **Orders:** the dishes you order, your delivery address and directions, your phone number, the payment method you chose and the order history.",
         "- **Messages:** what you send us through the contact form, including your name, email and, if you give it, your phone number.",
         "- **Technical information:** your IP address, browser type and basic usage data, used to keep the website secure and working.",
-        "We do not collect payment card numbers. Card payments are handled directly by our payment provider (see below).",
+        "We never see or store your payment details. Online payments are handled directly by our payment provider (see below).",
         "## How we use it",
         "- To manage your account and keep it secure.",
         "- To take, confirm, change and remind you about your bookings.",
@@ -729,7 +729,7 @@
         "We use your information because we need it to give you what you asked for (a table, an order, an answer), because you agreed (the newsletter), because we have a legitimate interest in running a safe and well-organised restaurant, or because the law requires it (for example, keeping invoices).",
         "## Who we share it with",
         "We share information only with the trusted services that help us run {brand}, and only what they need:",
-        "- **Payments:** card payments are processed by Tap Payments, which receives your card details directly. We only see the card brand, the last four digits and whether the payment succeeded.",
+        "- **Payments:** online payments are processed by our payment provider (Whish Money), which handles your payment details directly. We only see whether the payment succeeded.",
         "- **Email:** our email provider sends booking confirmations, order receipts and replies on our behalf.",
         "- **Hosting:** our website and database are hosted by cloud providers that store data securely on our behalf.",
         "- **Sign-in with Google:** if you choose it, Google confirms who you are to us.",
@@ -786,13 +786,13 @@
         "## Online orders",
         "- **Prices:** prices are shown on the menu. Unless stated otherwise, VAT is added at checkout as shown. Delivery fees, minimum order amounts and any discounts are shown before you pay.",
         "- **Availability:** dishes can sell out. If something you ordered is unavailable, we will contact you to offer a replacement or a refund for that item.",
-        "- **Payment:** you can pay by card online or in cash on delivery or pickup, depending on what is offered. Card payments are processed securely by Tap Payments.",
+        "- **Payment:** you can pay online or in cash on delivery or pickup, depending on what is offered. Online payments are processed securely by our payment provider.",
         "- **Times:** delivery and pickup times are estimates. We work hard to meet them, but traffic, weather and busy evenings can cause delays.",
         "- **Delivery:** please make sure your address and phone number are correct and that someone is available to receive the order.",
         "## Cancellations and refunds",
         "- You can cancel an order free of charge until we start preparing it. Once it is being prepared, we may not be able to cancel it.",
         "- If something is wrong with your order (a missing item, the wrong dish, a quality problem), contact us **the same day** with your order number. We will make it right with a replacement, a credit or a refund.",
-        "- Refunds for card payments go back to the same card. Depending on your bank, they can take 5 to 10 working days to appear.",
+        "- Refunds for online payments go back to the account you paid from, through our payment provider.",
         "- If we have to cancel an order, we refund you in full.",
         "## Allergies and dietary needs",
         "Our menu shows the main allergens in each dish, and our team is happy to help. However, our kitchen handles nuts, gluten, dairy, eggs, fish, shellfish, sesame and other allergens, so we **cannot guarantee** that any dish is completely free of them. If you have a severe allergy, please tell us when you book or order, and speak to our team before eating.",

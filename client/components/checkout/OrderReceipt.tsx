@@ -68,13 +68,11 @@ export function OrderReceipt({
     order.status === "awaiting_payment" && order.payment.status === "failed";
   const cancelled = order.status === "cancelled";
 
-  // The navbar's cart: the ordered dishes left it on the server
   useEffect(() => {
     if (!inAccount && !waiting && !failed)
       void queryClient.invalidateQueries({ queryKey: CART_KEY });
   }, [inAccount, waiting, failed, queryClient]);
 
-  // The bank is still deciding: ask again for a while; later, keep the kitchen's progress fresh
   useEffect(() => {
     if (failed || cancelled || order.status === "completed") return;
     const started = Date.now();
@@ -106,7 +104,6 @@ export function OrderReceipt({
     }).format(new Date(iso));
   const delivery = order.type === "delivery";
 
-  // In the account, a cancelled order still shows in full
   if (waiting || failed || (cancelled && !inAccount)) {
     return (
       <Shell>
@@ -134,13 +131,13 @@ export function OrderReceipt({
           </h1>
           <p className="mx-auto mt-2 max-w-sm text-pretty text-foreground/65">
             {waiting
-              ? "Your bank is confirming the payment. This page updates by itself, it usually takes a few seconds."
+              ? "We're confirming your payment. This page updates by itself, it usually takes a few seconds."
               : failed
-                ? (order.payment.lastError ?? "The card was declined.") +
+                ? (order.payment.lastError ?? "The payment was declined.") +
                   " You weren't charged, and your cart is still here."
                 : order.payment.status === "paid" ||
                     order.payment.status === "refunded"
-                  ? "Your card payment is being refunded. Sorry about that! Call us if you have any questions."
+                  ? "Your payment is being refunded. Sorry about that! Call us if you have any questions."
                   : "Nothing was charged. Your dishes are still in your cart if you'd like to order again."}
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
@@ -381,7 +378,7 @@ export function OrderReceipt({
             </Info>
             <Info
               icon={
-                order.payment.method === "card" ? (
+                order.payment.method === "online" ? (
                   <CreditCard className="size-5" />
                 ) : (
                   <Banknote className="size-5" />
@@ -389,16 +386,9 @@ export function OrderReceipt({
               }
               title="Payment"
             >
-              {order.payment.method === "card" ? (
+              {order.payment.method === "online" ? (
                 <>
-                  <p className="font-medium capitalize">
-                    {order.payment.cardBrand ?? "Card"}{" "}
-                    {order.payment.cardLast4 && (
-                      <span className="tabular-nums">
-                        •••• {order.payment.cardLast4}
-                      </span>
-                    )}
-                  </p>
+                  <p className="font-medium">Online payment</p>
                   <p className="text-emerald-700 dark:text-emerald-400">
                     {order.payment.status === "paid"
                       ? `Paid ${total.main}`
@@ -474,7 +464,9 @@ export function OrderReceipt({
                         src={src}
                         alt=""
                         fill
-                        sizes="48px"
+                        // the photo is drawn wider than its square box (object-cover): a bigger, sharper file
+                        sizes="96px"
+                        quality={90}
                         unoptimized={!canOptimize(src)}
                         className="object-cover"
                       />

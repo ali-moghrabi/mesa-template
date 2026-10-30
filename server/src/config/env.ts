@@ -45,10 +45,6 @@ const envSchema = z.object({
   BRAND_TIMEZONE: z.string().optional(),
   BRAND_LOGO_URL: z.string().optional(),
   BRAND_ADDRESS: z.string().optional(),
-  // Card payments through Tap (sk_test_… / sk_live_…). Empty: card payments are off.
-  TAP_SECRET_KEY: z.string().optional(),
-  TAP_PUBLIC_KEY: z.string().optional(),
-  TAP_MERCHANT_ID: z.string().optional(),
   API_PUBLIC_URL: z.string().optional(),
   ORDER_SIGNING_SECRET: z.string().optional(),
   SITE_CONFIG_PATH: z.string().optional(),

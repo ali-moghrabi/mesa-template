@@ -534,7 +534,8 @@ const features = obj({
   instagramFeed: flag,
 });
 
-export const PAYMENT_METHODS = ["cod", "card", "whish"] as const;
+/** "cod": cash on delivery/pickup. "whish": paying online (Whish Pay, once it's connected on the API). */
+export const PAYMENT_METHODS = ["cod", "whish"] as const;
 
 const amount = z.number().min(0).max(100_000);
 
@@ -558,7 +559,7 @@ const ordering = obj({
   payments: obj({
     methods: z
       .array(z.enum(PAYMENT_METHODS))
-      .min(1, 'Add at least one payment method: "cod" or "card"')
+      .min(1, 'Add at least one payment method: "cod" or "whish"')
       .refine(
         (m) => new Set(m).size === m.length,
         "Each payment method only once",

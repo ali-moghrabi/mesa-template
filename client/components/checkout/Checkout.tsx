@@ -37,16 +37,21 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { canOptimize, mediaSrc } from "@/admin/lib/menu/format";
 import { formatMoney, type CurrencyConfig } from "@/lib/menu/money";
 import { CART_KEY } from "@/lib/cart";
 import {
-  confirmOrderPayment,
   placeOrder,
   type PlaceOrderInput,
 } from "@/lib/actions/checkout.actions";
-import { TapCardField, type TapCardHandle } from "./TapCardField";
-import { ThreeDsWindow } from "./ThreeDsWindow";
 import {
   ACTIVE_ORDERS_KEY,
   CHECKOUT_SUCCESS_ROUTE,
@@ -57,17 +62,12 @@ import {
   type CheckoutInfo,
   type CheckoutValues,
   type OrderType,
+  type PaymentMethod,
   type Quote,
   type SlotDay,
 } from "@/lib/checkout";
 
-type Phase =
-  | "idle"
-  | "placing"
-  | "verifying"
-  | "confirming"
-  | "redirecting"
-  | "done";
+type Phase = "idle" | "placing" | "redirecting" | "done";
 
 type Props = {
   info: CheckoutInfo;
@@ -84,8 +84,7 @@ export function Checkout({ info, currency, brandName }: Props) {
     (t) => info[t] !== null,
   );
 
-  const cardAvailable = info.payments.card;
-  const cardForm = cardAvailable ? info.payments.cardForm : null;
+  const onlineAvailable = info.payments.online;
   const closed = info.open !== null && !info.open.open;
   const areas = info.delivery?.areas ?? [];
 
@@ -106,7 +105,7 @@ export function Checkout({ info, currency, brandName }: Props) {
       phone: info.customer.phone,
       notes: "",
       cutlery: false,
-      paymentMethod: cardAvailable ? "card" : "cash",
+      paymentMethod: onlineAvailable ? "online" : "cash",
       cashChangeFor: "",
       tipPercent: 0,
     },
@@ -140,15 +139,10 @@ export function Checkout({ info, currency, brandName }: Props) {
         : null;
 
   const attempt = useRef<{ signature: string; key: string } | null>(null);
-  const card = useRef<TapCardHandle>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [payError, setPayError] = useState<string | null>(null);
-  const [threeDs, setThreeDs] = useState<{
-    url: string;
-    orderId: string;
-  } | null>(null);
+  const [review, setReview] = useState<CheckoutValues | null>(null);
 
-  // Back from Tap's page with the browser's back button: the page is restored as it was left
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
       if (event.persisted) setPhase("idle");
@@ -194,15 +188,20 @@ export function Checkout({ info, currency, brandName }: Props) {
     if (result.status === 409) router.refresh();
   };
 
-  const submit = async (values: CheckoutValues) => {
+  const submit = (values: CheckoutValues) => {
     if (phase !== "idle" || blocker) return;
     setPayError(null);
-    const byCard = values.paymentMethod === "card";
     if (values.type === "delivery" && areas.length > 0 && !values.areaId) {
       form.setError("areaId", { message: "Choose your area" });
       form.setFocus("areaId");
       return;
     }
+    setReview(values);
+  };
+
+  const place = async (values: CheckoutValues) => {
+    if (phase !== "idle" || blocker) return;
+    const online = values.paymentMethod === "online";
 
     const input: Omit<PlaceOrderInput, "idempotencyKey"> = {
       type: values.type,
@@ -224,104 +223,49 @@ export function Checkout({ info, currency, brandName }: Props) {
       scheduledFor: values.when === "later" ? values.slot : undefined,
       tipPercent: values.tipPercent || undefined,
       cashChangeFor:
-        !byCard && values.cashChangeFor
+        !online && values.cashChangeFor
           ? Number(values.cashChangeFor)
           : undefined,
       expectedTotal: bill.total,
     };
-    // The card isn't part of it: a second card after a decline retries the same order
     const signature = JSON.stringify(input);
     if (attempt.current?.signature !== signature)
       attempt.current = { signature, key: newKey() };
 
     setPhase("placing");
-    let cardToken: string | undefined;
-    if (byCard && cardForm) {
-      const tokenized = card.current
-        ? await card.current.tokenize()
-        : { ok: false as const, message: "Card payments are still loading." };
-      if (!tokenized.ok) {
-        setPhase("idle");
-        setPayError(tokenized.message);
-        return;
-      }
-      cardToken = tokenized.token;
-    }
-
     const placed = await placeOrder({
       ...input,
       idempotencyKey: attempt.current.key,
-      ...(cardToken && { cardToken }),
     });
     if (!placed.ok) {
       showApiError(placed);
       return;
     }
     const { order, paymentUrl } = placed.data;
-    if (!byCard || order.status !== "awaiting_payment") {
+    if (!online || order.status !== "awaiting_payment") {
       finish(order.id);
       return;
     }
     if (order.payment.status === "failed") {
-      cardDeclined(order.payment.lastError);
+      setPhase("idle");
+      setPayError(
+        `${order.payment.lastError ?? "The payment didn't go through."} You weren't charged. Try again, or pay cash.`,
+      );
       return;
     }
     if (!paymentUrl || !/^https:\/\//i.test(paymentUrl)) {
       setPhase("idle");
-      setPayError("Card payments didn't start. Try again, or pay cash.");
+      setPayError("Paying online didn't start. Try again, or pay cash.");
       return;
     }
-
-    if (cardForm) {
-      // The bank's 3-D Secure check, in a window over the checkout
-      setPhase("verifying");
-      setThreeDs({ url: paymentUrl, orderId: order.id });
-      return;
-    }
-    // No card field: Tap's secure page, then the receipt page confirms the payment
+    // The provider's secure page, then the receipt page confirms the payment
     setPhase("redirecting");
     window.location.assign(paymentUrl);
   };
 
-  const cardDeclined = (message?: string) => {
-    setPhase("idle");
-    setPayError(
-      `${message ?? "Your card was declined."} You weren't charged. Try again or use another card.`,
-    );
-    card.current?.reset();
-  };
-
-  // The bank's check is over: the API reads the result from Tap
-  const afterThreeDs = async () => {
-    const orderId = threeDs?.orderId;
-    setThreeDs(null);
-    if (!orderId) return;
-    setPhase("confirming");
-    const result = await confirmOrderPayment(orderId);
-    if (
-      result.ok &&
-      result.data.status === "awaiting_payment" &&
-      result.data.payment.status === "failed"
-    ) {
-      cardDeclined(result.data.payment.lastError);
-      return;
-    }
-    // Paid, or still being confirmed: the receipt page shows which, and keeps checking
-    finish(orderId);
-  };
-
-  const cancelThreeDs = () => {
-    setThreeDs(null);
-    setPhase("idle");
-    setPayError(
-      "The bank check was closed before it finished. You weren't charged. Try again when you're ready.",
-    );
-    card.current?.reset();
-  };
-
   const busy = phase !== "idle";
   const payLabel =
-    paymentMethod === "card"
+    paymentMethod === "online"
       ? `Pay ${money(bill.total).main}`
       : `Place order · ${money(bill.total).main}`;
 
@@ -662,13 +606,13 @@ export function Checkout({ info, currency, brandName }: Props) {
               icon={<CreditCard className="size-4.5" />}
             >
               <div className="grid gap-3 sm:grid-cols-2">
-                {cardAvailable && (
+                {onlineAvailable && (
                   <Tile
-                    selected={paymentMethod === "card"}
-                    onSelect={() => setValue("paymentMethod", "card")}
+                    selected={paymentMethod === "online"}
+                    onSelect={() => setValue("paymentMethod", "online")}
                     icon={<CreditCard className="size-5" />}
-                    title="Credit or debit card"
-                    text="Visa, Mastercard…"
+                    title="Pay online"
+                    text="On a secure payment page"
                   />
                 )}
                 {info.payments.cash && (
@@ -691,34 +635,15 @@ export function Checkout({ info, currency, brandName }: Props) {
                 )}
               </div>
 
-              {/* Card: Tap's card field here (kept mounted, so a typed card survives switching to
-                  cash and back), or a note that the card is typed on Tap's page after "Pay" */}
-              {cardAvailable && (
-                <div
-                  className={cn("mt-4", paymentMethod !== "card" && "hidden")}
-                >
-                  {cardForm ? (
-                    <TapCardField
-                      ref={card}
-                      publicKey={cardForm.publicKey}
-                      merchantId={cardForm.merchantId}
-                      amount={bill.total}
-                      currency={info.currency}
-                      customer={{
-                        name: info.customer.name,
-                        email: info.customer.email,
-                      }}
-                    />
-                  ) : (
-                    <p className="flex items-start gap-2.5 rounded-xl bg-foreground/4 px-3.5 py-3 text-sm text-foreground/70">
-                      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <span>
-                        You&apos;ll enter your card on our payment
-                        partner&apos;s secure page, then come straight back
-                        here.
-                      </span>
-                    </p>
-                  )}
+              {onlineAvailable && paymentMethod === "online" && (
+                <div className="mt-4">
+                  <p className="flex items-start gap-2.5 rounded-xl bg-foreground/4 px-3.5 py-3 text-sm text-foreground/70">
+                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <span>
+                      You&apos;ll pay on our payment partner&apos;s secure page,
+                      then come straight back here.
+                    </span>
+                  </p>
                   {payError && (
                     <p
                       role="alert"
@@ -728,10 +653,6 @@ export function Checkout({ info, currency, brandName }: Props) {
                       {payError}
                     </p>
                   )}
-                  <p className="mt-3 flex items-center gap-1.5 text-xs text-foreground/50">
-                    <Lock className="size-3.5" /> Secured by Tap Payments. Your
-                    card details never reach our servers.
-                  </p>
                 </div>
               )}
 
@@ -748,7 +669,7 @@ export function Checkout({ info, currency, brandName }: Props) {
                 />
               )}
 
-              {!cardAvailable && !info.payments.cash && (
+              {!onlineAvailable && !info.payments.cash && (
                 <p className="text-sm text-destructive">
                   No payment method is available right now. Please call us to
                   order.
@@ -883,15 +804,23 @@ export function Checkout({ info, currency, brandName }: Props) {
         />
       </div>
 
-      {busy && phase !== "verifying" && <Working phase={phase} />}
-      {threeDs && (
-        <ThreeDsWindow
-          url={threeDs.url}
-          orderId={threeDs.orderId}
-          onDone={() => void afterThreeDs()}
-          onCancel={cancelThreeDs}
+      {review && (
+        <ConfirmOrder
+          values={review}
+          info={info}
+          total={money(bill.total).main}
+          money={(n) => money(n).main}
+          areaName={areas.find((a) => a.id === review.areaId)?.name}
+          slots={slots}
+          onCancel={() => setReview(null)}
+          onConfirm={() => {
+            const values = review;
+            setReview(null);
+            void place(values);
+          }}
         />
       )}
+      {busy && <Working phase={phase} />}
     </main>
   );
 }
@@ -1212,7 +1141,10 @@ function Summary({
                     src={src}
                     alt=""
                     fill
-                    sizes="56px"
+                    // Square thumbnail of a (usually 4:3) photo: object-cover draws it ~1.4× wider than the box,
+                    // so ask for a bigger file, and quality 90 (the API already compressed it once)
+                    sizes="112px"
+                    quality={90}
                     placeholder={line.dish.imageBlur ? "blur" : "empty"}
                     blurDataURL={line.dish.imageBlur}
                     unoptimized={!canOptimize(src)}
@@ -1357,6 +1289,167 @@ function Row({
   );
 }
 
+/** The second step: everything that matters, once more, before the order is sent */
+function ConfirmOrder({
+  values,
+  info,
+  total,
+  money,
+  areaName,
+  slots,
+  onCancel,
+  onConfirm,
+}: {
+  values: CheckoutValues;
+  info: CheckoutInfo;
+  total: string;
+  money: (n: number) => string;
+  areaName?: string;
+  slots: SlotDay[];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const delivery = values.type === "delivery";
+  const kind = delivery ? info.delivery : info.pickup;
+  const lines = info.cart.lines.filter((l) => !l.issue);
+  const shown = lines.slice(0, 4);
+  const more = lines.length - shown.length;
+
+  const when = (() => {
+    if (values.when !== "later" || !values.slot)
+      return `As soon as possible · about ${kind?.etaMinutes[0]}–${kind?.etaMinutes[1]} min`;
+    const day = slots.find((d) => d.date === values.slot!.slice(0, 10));
+    const time = day?.times.find((t) => t.value === values.slot)?.label;
+    return [day?.label, time].filter(Boolean).join(", ") || values.slot;
+  })();
+
+  const where = delivery
+    ? [
+        values.street,
+        values.building && `Building ${values.building}`,
+        values.floor && `Floor ${values.floor}`,
+        values.apartment && `Apt ${values.apartment}`,
+        areaName,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : info.pickup?.address || "At the restaurant";
+
+  const online = values.paymentMethod === "online";
+  const change = Number(values.cashChangeFor);
+  const payment = online
+    ? "Pay online, on the next page"
+    : delivery
+      ? `Cash on delivery${change > 0 ? ` · change for ${money(change)}` : ""}`
+      : "Pay at pickup";
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 sm:max-w-md sm:p-6">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold tracking-tight">
+            Confirm your order
+          </DialogTitle>
+          <DialogDescription>
+            Check everything once more before it goes to the kitchen.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ul className="divide-y divide-foreground/10 rounded-xl border border-foreground/10 px-3.5">
+          {shown.map((l) => (
+            <li
+              key={l.id}
+              className="flex items-baseline gap-2.5 py-2.5 text-sm"
+            >
+              <span className="font-semibold text-primary tabular-nums">
+                {l.quantity}×
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {l.dish.name}
+                {l.variant && (
+                  <span className="text-foreground/55">
+                    {" "}
+                    · {l.variant.name}
+                  </span>
+                )}
+              </span>
+              <span className="text-foreground/70 tabular-nums">
+                {money(l.total)}
+              </span>
+            </li>
+          ))}
+          {more > 0 && (
+            <li className="py-2.5 text-sm text-foreground/55">
+              + {more} more {more === 1 ? "dish" : "dishes"}
+            </li>
+          )}
+        </ul>
+
+        <dl className="grid gap-3 text-sm">
+          <ConfirmRow
+            icon={delivery ? <Truck /> : <Store />}
+            label={delivery ? "Delivery to" : "Pickup at"}
+            value={where}
+          />
+          <ConfirmRow icon={<Clock />} label="When" value={when} />
+          <ConfirmRow
+            icon={online ? <CreditCard /> : <Banknote />}
+            label="Payment"
+            value={payment}
+          />
+          <ConfirmRow icon={<Phone />} label="Phone" value={values.phone} />
+        </dl>
+
+        <div className="flex items-baseline justify-between rounded-xl bg-foreground/5 px-4 py-3">
+          <span className="font-medium">Total</span>
+          <span className="text-xl font-semibold tabular-nums">{total}</span>
+        </div>
+
+        <DialogFooter className="-mx-5 -mb-5 sm:-mx-6 sm:-mb-6">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="h-12 rounded-full border border-foreground/15 px-5 text-sm font-semibold transition-colors hover:bg-foreground/5"
+          >
+            Edit order
+          </button>
+          <button
+            type="button"
+            autoFocus
+            onClick={onConfirm}
+            className="flex h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground tabular-nums shadow-[0_14px_30px_-14px_color-mix(in_srgb,var(--primary)_90%,transparent)] transition-all hover:brightness-105"
+          >
+            <Check className="size-4" />
+            {online ? `Confirm and pay ${total}` : `Confirm order · ${total}`}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ConfirmRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary [&_svg]:size-4">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <dt className="text-xs text-foreground/55">{label}</dt>
+        <dd className="font-medium text-pretty wrap-break-word">{value}</dd>
+      </div>
+    </div>
+  );
+}
+
 function PlaceButton({
   busy,
   disabled,
@@ -1390,12 +1483,12 @@ function PlaceButton({
   );
 }
 
-function TrustLine({ method }: { method: "card" | "cash" }) {
+function TrustLine({ method }: { method: PaymentMethod }) {
   return (
     <p className="mt-3 text-center text-xs leading-relaxed text-foreground/50">
-      {method === "card"
-        ? "Card payments are processed securely by Tap Payments. We never see or store your card number."
-        : "You'll pay when your order arrives. No card needed."}
+      {method === "online"
+        ? "You pay on our payment partner's secure page. We never see your payment details."
+        : "You'll pay when your order arrives."}
     </p>
   );
 }
@@ -1444,9 +1537,7 @@ function Working({ phase }: { phase: Phase }) {
       ? "Placing your order…"
       : phase === "redirecting"
         ? "Taking you to the secure payment page…"
-        : phase === "confirming"
-          ? "Confirming with your bank…"
-          : "Almost there…";
+        : "Almost there…";
   return (
     <div
       className="fixed inset-0 z-60 grid place-items-center bg-background/70 backdrop-blur-sm transition-opacity starting:opacity-0"

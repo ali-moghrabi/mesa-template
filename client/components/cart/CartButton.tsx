@@ -296,7 +296,8 @@ function Line({
             src={src}
             alt=""
             fill
-            sizes="72px"
+            sizes="128px"
+            quality={90}
             placeholder={line.dish.imageBlur ? "blur" : "empty"}
             blurDataURL={line.dish.imageBlur}
             unoptimized={!canOptimize(src)}

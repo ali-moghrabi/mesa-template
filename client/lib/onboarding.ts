@@ -115,7 +115,7 @@ export type OnboardingAnswers = {
     deliveryAreas: string;
     pickup: boolean;
     whatsappOrdering: boolean;
-    payments: ("cash" | "card" | "whish")[];
+    payments: ("cash" | "whish")[];
     currency: (typeof CURRENCIES)[number];
   };
   extras: {
@@ -620,7 +620,7 @@ export function buildConfig(a: OnboardingAnswers, base: Json): Json {
   const order = cfg.ordering as Json | undefined;
   if (order) {
     (order.payments as Json).methods = s.payments.map(
-      (p) => ({ cash: "cod", card: "card", whish: "whish" })[p],
+      (p) => ({ cash: "cod", whish: "whish" })[p],
     );
     if (s.delivery) {
       const d = (order.delivery as Json | undefined) ?? {

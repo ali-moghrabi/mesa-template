@@ -422,17 +422,6 @@ writeFileSync(
     ["BRAND_LOGO_URL", logo ? `${webUrl}/${logo}` : ""],
     ...Object.entries(apiShared),
     ["API_PUBLIC_URL", apiUrl],
-    [
-      "# Card payments: the restaurant's own Tap account. No secret key: cards are off",
-      "",
-    ],
-    ["TAP_SECRET_KEY", ""],
-    [
-      "# The card field inside the checkout. Empty: guests pay on Tap's own page",
-      "",
-    ],
-    ["TAP_PUBLIC_KEY", ""],
-    ["TAP_MERCHANT_ID", ""],
   ]),
 );
 
@@ -462,11 +451,11 @@ Site: \`${slug}\` · Website: ${webUrl} · API: ${apiUrl}
 
 ## 4. Accounts
 - [ ] Create the owner's admin account
-${on("onlineOrdering") ? `- [ ] Card payments: their Tap keys on Render (TAP_SECRET_KEY, TAP_PUBLIC_KEY, TAP_MERCHANT_ID), "card" in ordering.payments.methods, and ask Tap to register ${webUrl.replace("https://", "")} for the card field\n` : ""}${get(raw, "integrations") ? "- [ ] Google sign-in: add the domain to the OAuth client's authorised origins\n" : ""}- [ ] Menu: enter it in the admin panel, or seed it
+${get(raw, "integrations") ? "- [ ] Google sign-in: add the domain to the OAuth client's authorised origins\n" : ""}- [ ] Menu: enter it in the admin panel, or seed it
 
 ## 5. Test before handing over
 - [ ] Phone + desktop: pages, menu, photos, colours, opening hours
-${on("reservations") ? "- [ ] A test booking: the confirmation email arrives\n" : ""}${on("onlineOrdering") ? "- [ ] A test order (cash and card), and it shows in the admin panel\n" : ""}- [ ] Contact form email arrives
+${on("reservations") ? "- [ ] A test booking: the confirmation email arrives\n" : ""}${on("onlineOrdering") ? "- [ ] A test order (cash), and it shows in the admin panel\n" : ""}- [ ] Contact form email arrives
 - [ ] Send the owner the admin link and login
 `,
 );

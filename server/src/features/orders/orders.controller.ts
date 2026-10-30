@@ -2,10 +2,8 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpCode,
   HttpStatus,
-  Logger,
   Param,
   Post,
   Query,
@@ -18,7 +16,6 @@ import {
 } from 'decorators/current-user.decorator';
 import { PlaceOrderDto } from './dto/order.dto';
 import { OrdersService } from './orders.service';
-import { TapService, type TapCharge } from './tap.service';
 
 @Controller('orders')
 @Authorize()
@@ -32,14 +29,14 @@ export class OrdersController {
     return this.orders.checkout(me.id);
   }
 
-  /** POST /api/v1/orders → { order, paymentUrl? } (paymentUrl: Tap's payment page, for card orders) */
+  /** POST /api/v1/orders → { order, paymentUrl? } (paymentUrl: the online payment page, when paying online) */
   @Post()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   place(@CurrentUser() me: CurrentActor, @Body() dto: PlaceOrderDto) {
     return this.orders.place(me.id, dto);
   }
 
-  /** POST /api/v1/orders/:id/confirm-payment → the order, after reading the payment from Tap */
+  /** POST /api/v1/orders/:id/confirm-payment → the order, after reading the payment from the provider */
   @Post(':id/confirm-payment')
   @HttpCode(HttpStatus.OK)
   confirm(@CurrentUser() me: CurrentActor, @Param('id') id: string) {
@@ -74,38 +71,5 @@ export class OrdersController {
   @Get(':id')
   get(@CurrentUser() me: CurrentActor, @Param('id') id: string) {
     return this.orders.get(me.id, id);
-  }
-}
-
-/**
- * POST /api/v1/payments/tap/webhook. Called by Tap (post.url of each charge), not by people.
- * The body is only used for the charge id: OrdersService reads the charge again from Tap, so a
- * forged call can't mark anything paid. The "hashstring" signature is checked and logged as well.
- */
-@Controller('payments/tap')
-@SkipThrottle()
-export class TapWebhookController {
-  private readonly logger = new Logger(TapWebhookController.name);
-
-  constructor(
-    private readonly tap: TapService,
-    private readonly orders: OrdersService,
-  ) {}
-
-  @Post('webhook')
-  @HttpCode(HttpStatus.OK)
-  async webhook(
-    @Body() body: TapCharge,
-    @Headers('hashstring') hashstring?: string,
-  ) {
-    const id = typeof body?.id === 'string' ? body.id : '';
-    if (!this.tap.verifyWebhook(body, hashstring))
-      this.logger.warn(
-        `Tap webhook for ${id || 'nothing'}: the signature didn't check out. Reading it from Tap anyway.`,
-      );
-
-    // Charges only (refunds are recorded when they're made from the admin panel)
-    if (/^chg_[A-Za-z0-9]+$/.test(id)) await this.orders.handleChargeEvent(id);
-    return { received: true };
   }
 }

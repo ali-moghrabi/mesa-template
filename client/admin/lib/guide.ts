@@ -219,7 +219,7 @@ export const GUIDE_TOPICS: Partial<Record<AdminIcon, GuideTopic>> = {
         points: [
           "Print gives the kitchen a ticket.",
           "Notes on an order are for the team only.",
-          "Cancel order if you can't make it. Card payments are refunded by the owner.",
+          "Cancel order if you can't make it. Online payments are refunded by the owner.",
         ],
       },
     ],

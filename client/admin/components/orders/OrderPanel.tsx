@@ -296,9 +296,7 @@ export function OrderPanel({
                   order={data}
                   shared={shared}
                   onRefund={
-                    canEdit &&
-                    data.payment.method === "card" &&
-                    (data.payment.amountPaid ?? 0) > data.payment.refunded
+                    canEdit && data.payment.refundable > 0
                       ? () => setDialog("refund")
                       : undefined
                   }
@@ -616,7 +614,7 @@ function CustomerCard({
   const payment =
     toCollect > 0.004
       ? `Collect ${money(toCollect)}${p.method === "cash" ? " cash" : ""}${p.method === "cash" && p.cashChangeFor ? ` (change for ${money(p.cashChangeFor)})` : ""}`
-      : "Paid by card: nothing to collect";
+      : "Paid online: nothing to collect";
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text);
     toast.add({ title: "Copied", type: "success" });
@@ -907,12 +905,12 @@ function PaymentCard({
 }) {
   const p = order.payment;
   const money = (n: number) => formatMoney(n, shared.currency).main;
-  const card = p.method === "card";
+  const online = p.method === "online";
   return (
     <Card
       title="Payment"
       icon={
-        card ? (
+        online ? (
           <CreditCard className="size-4" />
         ) : (
           <Banknote className="size-4" />
@@ -930,9 +928,9 @@ function PaymentCard({
         )
       }
     >
-      <p className="font-medium capitalize">
-        {card
-          ? `${p.cardBrand ?? "Card"}${p.cardLast4 ? ` •••• ${p.cardLast4}` : ""}`
+      <p className="font-medium">
+        {online
+          ? "Online payment"
           : order.type === "delivery"
             ? "Cash on delivery"
             : "Pay at pickup"}
@@ -942,7 +940,7 @@ function PaymentCard({
           ? `Paid ${money(p.amountPaid ?? order.amounts.total)}${p.paidAt ? ` at ${formatClock(p.paidAt, shared, true)}` : ""}`
           : p.status === "refunded"
             ? "Fully refunded"
-            : card
+            : online
               ? "Not paid yet"
               : `${money(order.amounts.total)} to collect${p.cashChangeFor ? ` · bring change for ${money(p.cashChangeFor)}` : ""}`}
       </p>
@@ -1096,12 +1094,10 @@ function CancelDialog({
   onConfirm: (reason: string, refund: boolean) => void;
 }) {
   const [reason, setReason] = useState("");
-  const paidByCard =
-    order.payment.method === "card" &&
-    (order.payment.amountPaid ?? 0) - order.payment.refunded > 0;
-  const [refund, setRefund] = useState(paidByCard);
-  const refundable = (order.payment.amountPaid ?? 0) - order.payment.refunded;
-  const blocked = paidByCard && !canEdit;
+  const refundable = order.payment.refundable;
+  const paidOnline = refundable > 0;
+  const [refund, setRefund] = useState(paidOnline);
+  const blocked = paidOnline && !canEdit;
   const quick = [
     "Guest asked to cancel",
     "Out of stock",
@@ -1121,8 +1117,8 @@ function CancelDialog({
         </DialogHeader>
         {blocked ? (
           <Notice tone="amber" icon={<AlertTriangle className="size-4" />}>
-            This order was paid by card, so cancelling it needs a refund. Ask
-            the owner to cancel it.
+            This order was paid online, so cancelling it needs a refund. Ask the
+            owner to cancel it.
           </Notice>
         ) : (
           <div className="space-y-3">
@@ -1151,7 +1147,7 @@ function CancelDialog({
               placeholder="Why is it cancelled?"
               className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             />
-            {paidByCard && (
+            {paidOnline && (
               <label className="flex items-start gap-3 rounded-xl border border-border p-3 text-sm">
                 <input
                   type="checkbox"
@@ -1162,10 +1158,10 @@ function CancelDialog({
                 <span>
                   <span className="font-semibold">
                     Refund {formatMoney(refundable, shared.currency).main} to
-                    the card
+                    the guest
                   </span>
                   <span className="block text-muted-foreground">
-                    The guest&apos;s bank usually shows it within 5–14 days.
+                    It goes back through the payment provider.
                   </span>
                 </span>
               </label>
@@ -1184,7 +1180,7 @@ function CancelDialog({
           {!blocked && (
             <button
               type="button"
-              onClick={() => onConfirm(reason.trim(), paidByCard && refund)}
+              onClick={() => onConfirm(reason.trim(), paidOnline && refund)}
               disabled={pending || reason.trim().length < 2}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-sm font-semibold text-white disabled:opacity-50"
             >
@@ -1209,10 +1205,7 @@ function RefundDialog({
   onClose: () => void;
   onSaved: (o: AdminOrder) => void;
 }) {
-  const refundable = Math.max(
-    0,
-    (order.payment.amountPaid ?? 0) - order.payment.refunded,
-  );
+  const refundable = order.payment.refundable;
   const owed =
     order.payment.balance < 0
       ? Math.min(refundable, -order.payment.balance)
@@ -1235,7 +1228,7 @@ function RefundDialog({
       onSaved(o);
       toast.add({
         title: `Refunded ${formatMoney(value, shared.currency).main}`,
-        description: "The guest gets it back on their card.",
+        description: "It goes back to the guest through the payment provider.",
         type: "success",
       });
       onClose();
@@ -1258,7 +1251,7 @@ function RefundDialog({
           <DialogTitle>Refund order #{order.number}</DialogTitle>
           <DialogDescription>
             Up to {formatMoney(refundable, shared.currency).main} can go back to
-            the guest&apos;s card.
+            the guest.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1441,8 +1434,8 @@ function EditItems({
       }),
   });
 
-  const paidByCard =
-    order.payment.method === "card" && order.payment.status === "paid";
+  const paidOnline =
+    order.payment.method === "online" && order.payment.status === "paid";
 
   return (
     <section className="rounded-2xl border-2 border-primary/40 bg-card p-4">
@@ -1577,9 +1570,9 @@ function EditItems({
             )}
           </span>
         </div>
-        {paidByCard && Math.abs(diff) > 0.004 && (
+        {paidOnline && Math.abs(diff) > 0.004 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Paid by card:{" "}
+            Paid online:{" "}
             {diff > 0
               ? `collect ${money(diff)} at ${order.type === "delivery" ? "delivery" : "pickup"}.`
               : `you can refund ${money(-diff)} after saving.`}
@@ -1973,7 +1966,7 @@ function printTicket(order: AdminOrder, shared: Shared, brandName: string) {
     ${order.cutlery ? "<div>+ Cutlery & napkins</div>" : ""}
     <hr>
     <div class="big" style="display:flex;justify-content:space-between"><span>TOTAL</span><span>${money(order.amounts.total)}</span></div>
-    <div>${order.payment.method === "card" ? (order.payment.status === "paid" ? "PAID BY CARD" : "CARD") : `CASH TO COLLECT${order.payment.cashChangeFor ? ` · change for ${money(order.payment.cashChangeFor)}` : ""}`}</div>
+    <div>${order.payment.method === "online" ? (order.payment.status === "paid" ? "PAID ONLINE" : "ONLINE, NOT PAID") : `CASH TO COLLECT${order.payment.cashChangeFor ? ` · change for ${money(order.payment.cashChangeFor)}` : ""}`}</div>
     <hr><h2>${esc(order.customer.name)}</h2><div>${esc(order.customer.phone)}</div>
     ${a ? `<div>${esc([a.street, a.building && `Bldg ${a.building}`, a.floor && `Fl ${a.floor}`, a.apartment && `Apt ${a.apartment}`].filter(Boolean).join(", "))}</div>${a.area ? `<div>${esc(a.area)}</div>` : ""}${a.directions ? `<div><i>${esc(a.directions)}</i></div>` : ""}` : ""}
     <hr><div class="c">${formatClock(order.placedAt ?? order.createdAt, shared, true)}</div>

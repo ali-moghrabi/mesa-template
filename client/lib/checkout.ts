@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Cart } from "@/lib/cart";
 
 export type OrderType = "delivery" | "pickup";
-export type PaymentMethod = "card" | "cash";
+export type PaymentMethod = "online" | "cash";
 
 export type SlotDay = {
   date: string;
@@ -49,12 +49,8 @@ export type CheckoutInfo = {
     instructions: string;
     slots: SlotDay[];
   };
-  /** cardForm: Tap's card field inside the checkout; null = guests pay on Tap's own page */
-  payments: {
-    card: boolean;
-    cash: boolean;
-    cardForm: { publicKey: string; merchantId?: string } | null;
-  };
+  /** online: a payment provider is connected and the site offers paying online */
+  payments: { online: boolean; cash: boolean };
   tips: number[];
   open: OpenStatus | null;
   scheduling: boolean;
@@ -83,8 +79,6 @@ export type OrderView = {
   payment: {
     method: PaymentMethod;
     status: "unpaid" | "pending" | "paid" | "failed" | "refunded";
-    cardBrand?: string;
-    cardLast4?: string;
     cashChangeFor?: number;
     lastError?: string;
     paidAt?: string;
@@ -127,7 +121,7 @@ export type OrderView = {
   history: { status: string; at: string }[];
 };
 
-/** paymentUrl: Tap's secure payment page, for a card order still to be paid */
+/** paymentUrl: the payment provider's page, for an online order still to be paid */
 export type PlacedOrder = { order: OrderView; paymentUrl?: string };
 
 export const PHONE_PATTERN = /^\+?[0-9][0-9 ()-]{5,22}$/;
@@ -154,7 +148,7 @@ export const checkoutSchema = z
       .max(NOTES_MAX, `Up to ${NOTES_MAX} characters`)
       .optional(),
     cutlery: z.boolean(),
-    paymentMethod: z.enum(["card", "cash"]),
+    paymentMethod: z.enum(["online", "cash"]),
     cashChangeFor: z
       .string()
       .trim()

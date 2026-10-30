@@ -12,7 +12,7 @@ import {
   shiftsLabel,
   shiftsOn,
 } from 'lib/opening-hours';
-import { zonedToDate, type OrderType } from 'lib/ordering';
+import { zonedToDate, type OrderType, type PaymentMethod } from 'lib/ordering';
 import type { ReservationStatus } from 'lib/reservations';
 import { MenuItem, type MenuItemDocument } from 'src/schemas/item.schema';
 import { Message, type MessageDocument } from 'src/schemas/message.schema';
@@ -20,6 +20,8 @@ import {
   Order,
   type OrderDocument,
   type OrderStatus,
+  shownMethod,
+  type StoredPaymentMethod,
 } from 'src/schemas/order.schema';
 import {
   Reservation,
@@ -153,7 +155,7 @@ export type Sales = {
   }[];
   topDishes: { name: string; quantity: number; revenue: number }[];
   channels: { type: OrderType; orders: number; revenue: number }[];
-  payments: { method: 'card' | 'cash'; orders: number; revenue: number }[];
+  payments: { method: PaymentMethod; orders: number; revenue: number }[];
   heatmap: { day: number; hour: number; orders: number }[];
   cancelled: Compare;
 };
@@ -771,7 +773,7 @@ export class OverviewService {
         revenue: number;
       }[];
       channels: { _id: OrderType; orders: number; revenue: number }[];
-      payments: { _id: 'card' | 'cash'; orders: number; revenue: number }[];
+      payments: { _id: StoredPaymentMethod; orders: number; revenue: number }[];
       heatmap: { _id: { day: number; hour: number }; orders: number }[];
     };
     const notCancelled: PipelineStage.Match = {
@@ -953,7 +955,7 @@ export class OverviewService {
           revenue: money(c.revenue),
         }))
         .sort((a, b) => b.orders - a.orders),
-      payments: (facets?.payments ?? [])
+      payments: mergeMethods(facets?.payments ?? [])
         .map((p) => ({
           method: p._id,
           orders: p.orders,
@@ -1003,3 +1005,18 @@ export class OverviewService {
 }
 
 type Ctx = { now: Date; today: string; timezone: string; startOfToday: Date };
+
+function mergeMethods(
+  rows: { _id: StoredPaymentMethod; orders: number; revenue: number }[],
+): { _id: PaymentMethod; orders: number; revenue: number }[] {
+  const merged = new Map<PaymentMethod, { orders: number; revenue: number }>();
+  for (const row of rows) {
+    const method = shownMethod(row._id);
+    const sum = merged.get(method) ?? { orders: 0, revenue: 0 };
+    merged.set(method, {
+      orders: sum.orders + row.orders,
+      revenue: sum.revenue + row.revenue,
+    });
+  }
+  return [...merged].map(([method, sum]) => ({ _id: method, ...sum }));
+}

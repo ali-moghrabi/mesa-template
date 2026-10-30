@@ -16,7 +16,6 @@ import {
   CalendarDays,
   Check,
   Clock,
-  CreditCard,
   FileText,
   ImagePlus,
   Loader2,
@@ -86,7 +85,13 @@ const STEP_INFO: Record<Step, { title: string; hint: string }> = {
 const readDraft = (): OnboardingAnswers | null => {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as OnboardingAnswers) : null;
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as OnboardingAnswers;
+    if (Array.isArray(draft.services?.payments))
+      draft.services.payments = draft.services.payments.filter(
+        (p) => p === "cash" || p === "whish",
+      );
+    return draft;
   } catch {
     return null;
   }
@@ -99,7 +104,7 @@ export function Onboarding({ apiUrl, base, plan }: Props) {
   const [answers, setAnswers] = useState<OnboardingAnswers>(() =>
     emptyAnswers(plan),
   );
-  const [stepIndex, setStepIndex] = useState(-1); // -1 = welcome
+  const [stepIndex, setStepIndex] = useState(-1);
   const [errors, setErrors] = useState<Errors>({});
   const [logo, setLogo] = useState<{ file: File; url: string } | null>(null);
   const [suggested, setSuggested] = useState<string[]>([]);
@@ -119,7 +124,6 @@ export function Onboarding({ apiUrl, base, plan }: Props) {
 
   const step = stepIndex >= 0 ? STEPS[stepIndex] : null;
 
-  // Keep the answers on this device while typing (files can't be kept)
   useEffect(() => {
     if (stepIndex < 0 || doneId) return;
     try {
@@ -141,7 +145,6 @@ export function Onboarding({ apiUrl, base, plan }: Props) {
     return url;
   };
 
-  /** answers.section = { ...answers.section, ...patch } */
   const patch = <K extends keyof OnboardingAnswers>(
     section: K,
     value: Partial<OnboardingAnswers[K]>,
@@ -177,8 +180,6 @@ export function Onboarding({ apiUrl, base, plan }: Props) {
     }
     goTo(0);
   };
-
-  /* files */
 
   const addLogo = async (file: File | undefined) => {
     if (!file) return;
@@ -1620,13 +1621,6 @@ function ServicesStep({ a, patch, errors }: StepProps) {
             icon={<Banknote className="size-4" />}
           >
             Cash
-          </Chip>
-          <Chip
-            active={s.payments.includes("card")}
-            onClick={() => togglePay("card")}
-            icon={<CreditCard className="size-4" />}
-          >
-            Card online
           </Chip>
           <Chip
             active={s.payments.includes("whish")}

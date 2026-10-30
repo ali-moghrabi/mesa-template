@@ -18,7 +18,7 @@ const signedOut = {
 
 const orderSchema = z.object({
   type: z.enum(["delivery", "pickup"]),
-  paymentMethod: z.enum(["card", "cash"]),
+  paymentMethod: z.enum(["online", "cash"]),
   address: z
     .object({
       areaId: z.string().max(60).optional(),
@@ -40,10 +40,6 @@ const orderSchema = z.object({
   cashChangeFor: z.number().min(0).max(1_000_000).optional(),
   idempotencyKey: z.string().regex(/^[A-Za-z0-9-]{16,64}$/),
   expectedTotal: z.number().min(0),
-  cardToken: z
-    .string()
-    .regex(/^tok_[A-Za-z0-9]{6,64}$/)
-    .optional(),
 });
 
 export type PlaceOrderInput = z.infer<typeof orderSchema>;
